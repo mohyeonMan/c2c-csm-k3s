@@ -11,7 +11,7 @@ import lombok.ToString;
 @ToString
 public class Event {
     private final String requestId;
-    private final String frameId;
+    private final String commandId;
     private final String userId;
     private final String eventId;
     private final EventType type;

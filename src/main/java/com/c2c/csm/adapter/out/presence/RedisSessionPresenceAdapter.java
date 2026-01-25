@@ -1,7 +1,5 @@
 package com.c2c.csm.adapter.out.presence;
 
-import java.time.Duration;
-
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
@@ -17,7 +15,7 @@ public class RedisSessionPresenceAdapter implements SessionPresencePort {
     private final StringRedisTemplate redisTemplate;
 
     @Override
-    public String getUserNodeQueueName(String userId) {
+    public String getRoutingKeyByUserId(String userId) {
         return redisTemplate.opsForValue().get(key(userId));
     }
 

@@ -15,7 +15,7 @@ import lombok.ToString;
 @Builder
 public class EventDto {
     private String requestId;
-    private String frameId;
+    private String commandId;
     private String userId;
     private String eventId;
     private String type;

@@ -31,7 +31,7 @@ public class RabbitMqEventPulisher implements PublishEventPort{
 
         EventDto eventDto = EventDto.builder()
                 .requestId(event.getRequestId())
-                .frameId(event.getFrameId())
+                .commandId(event.getCommandId())
                 .userId(event.getUserId())
                 .eventId(event.getEventId())
                 .type(event.getType().name())
