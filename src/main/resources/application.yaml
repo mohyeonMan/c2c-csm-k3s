@@ -1,0 +1,54 @@
+spring:
+  application:
+    name: ws
+  jackson:
+    default-property-inclusion: non_null
+  rabbitmq:
+    host: ${SPRING_RABBITMQ_HOST:rabbitmq}
+    port: ${SPRING_RABBITMQ_PORT:5672}
+    username: ${SPRING_RABBITMQ_USERNAME:guest}
+    password: ${SPRING_RABBITMQ_PASSWORD:guest}
+  data:
+    redis:
+      host: ${SPRING_REDIS_HOST:redis}
+      port: ${SPRING_REDIS_PORT:6379}
+      username: ${SPRING_REDIS_USERNAME:admin}
+      password: ${SPRING_REDIS_PASSWORD:password}
+
+c2c:
+  mq:
+    command:
+      exchange: ${C2C_MQ_COMMAND_EXCHANGE:c2c.command}
+      queue: ${C2C_MQ_COMMAND_QUEUE:c2c.command.queue}
+      routing-key: ${C2C_MQ_COMMAND_ROUTING_KEY:command.command}
+    ack:
+      exchange: ${C2C_MQ_ACK_EXCHANGE:c2c.ack}
+      queue: ${C2C_MQ_ACK_QUEUE:c2c.ack.queue}
+      routing-key: ${C2C_MQ_ACK_ROUTING_KEY:ack.ack}
+    event:
+      exchange: ${C2C_MQ_EVENT_EXCHANGE:c2c.event}
+      # queue: ${C2C_MQ_EVENT_QUEUE:c2c.event.queue}.${csm.node-id}
+      # routing-key: ${C2C_MQ_EVENT_ROUTING_KEY:event.event}
+    listener:
+      core-pool-size: ${C2C_MQ_LISTENER_CORE_POOL_SIZE:2}
+      max-pool-size: ${C2C_MQ_LISTENER_MAX_POOL_SIZE:8}
+
+logging:
+  pattern:
+    console: "%d{HH:mm:ss}%-5level[%thread]%logger{0}:: %msg%n"
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+csm:
+  node-id: ${CSM_NODE_ID:${HOSTNAME:${random.uuid}}}
+  node-presence:
+    ttl-seconds: ${CSM_NODE_PRESENCE_TTL_SECONDS:30}
+    heartbeat-ms: ${CSM_NODE_PRESENCE_HEARTBEAT_MS:10000}
