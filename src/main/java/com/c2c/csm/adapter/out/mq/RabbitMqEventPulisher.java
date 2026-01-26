@@ -6,7 +6,7 @@ import org.springframework.stereotype.Component;
 
 import com.c2c.csm.adapter.out.mq.dto.EventDto;
 import com.c2c.csm.application.model.Event;
-import com.c2c.csm.application.port.out.mq.PublishEventPort;
+import com.c2c.csm.application.port.out.event.PublishEventPort;
 
 import lombok.extern.slf4j.Slf4j;
 

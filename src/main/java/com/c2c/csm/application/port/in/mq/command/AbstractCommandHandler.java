@@ -7,7 +7,7 @@ import com.c2c.csm.application.model.Command;
 import com.c2c.csm.application.model.Event;
 import com.c2c.csm.application.model.EventType;
 import com.c2c.csm.application.model.Status;
-import com.c2c.csm.application.port.out.mq.EventPublishUsecase;
+import com.c2c.csm.application.port.out.event.EventPublishUsecase;
 import com.c2c.csm.application.port.out.presenece.SessionPresencePort;
 import com.c2c.csm.common.util.CommonMapper;
 import com.c2c.csm.common.util.IdGenerator;

@@ -1,4 +1,4 @@
-package com.c2c.csm.application.port.out.mq;
+package com.c2c.csm.application.port.out.event;
 
 import com.c2c.csm.application.model.Event;
 
