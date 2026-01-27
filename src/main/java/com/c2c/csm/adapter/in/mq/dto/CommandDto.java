@@ -1,11 +1,9 @@
 package com.c2c.csm.adapter.in.mq.dto;
 
-import lombok.Builder;
 import lombok.Getter;
 import lombok.ToString;
 
 @Getter
-@Builder
 @ToString
 public class CommandDto {
     private String commandId;
