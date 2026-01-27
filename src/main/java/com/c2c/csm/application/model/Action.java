@@ -11,7 +11,6 @@ public enum Action {
     JOIN,
     JOIN_REQUEST,
     JOIN_APPROVE,
-    JOIN_REJECT,
     LEAVE,
     CLIENT_MESSAGE,
     @JsonEnumDefaultValue

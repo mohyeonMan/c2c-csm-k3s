@@ -1,4 +1,4 @@
-package com.c2c.csm.application.port.in.mq.command;
+package com.c2c.csm.application.service.command;
 
 import java.time.Instant;
 
@@ -7,6 +7,7 @@ import com.c2c.csm.application.model.Command;
 import com.c2c.csm.application.model.Event;
 import com.c2c.csm.application.model.EventType;
 import com.c2c.csm.application.model.Status;
+import com.c2c.csm.application.port.in.mq.command.CommandHandler;
 import com.c2c.csm.application.port.out.event.EventPublishUsecase;
 import com.c2c.csm.application.port.out.presenece.SessionPresencePort;
 import com.c2c.csm.common.util.CommonMapper;
@@ -26,9 +27,7 @@ public abstract class AbstractCommandHandler implements CommandHandler {
     public void handle(Command command) {
         try {
             Object resultPayload = doHandle(command);
-            if (resultPayload != null) {
-                sendResult(command, resultPayload);
-            }
+            sendResult(command, resultPayload);
         } catch (Exception ex) {
             log.error("Error handling command: {}", command, ex);
             sendErrorResult(command, ex);
@@ -57,7 +56,7 @@ public abstract class AbstractCommandHandler implements CommandHandler {
             .eventId(IdGenerator.generateId("evt"))
             .type(type)
             .action(action)
-            .payload(commonMapper.write(payload))
+            .payload(writePayload(payload))
             .status(status)
             .sentAt(Instant.now())
             .build();
@@ -92,5 +91,15 @@ public abstract class AbstractCommandHandler implements CommandHandler {
         );
 
         return event;
+    }
+
+    protected <T> T parsePayload(String payloadString, Class<T> type){
+        return commonMapper.read(payloadString, type);
+    }
+
+    protected String writePayload(Object payload){
+        if(payload == null) return null;
+        return commonMapper.write(payload);
+        
     }
 }

@@ -6,6 +6,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Component;
 
 import com.c2c.csm.application.model.Event;
 import com.c2c.csm.common.util.CommonMapper;
+import com.c2c.csm.infrastructure.registry.dto.RegisteredEvent;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -126,22 +128,38 @@ public class EventRegistry {
             return Optional.empty();
         }
         Long retryCount = readRetryCount(eventId);
-        return Optional.of(new RegisteredEvent(event, retryCount));
+        Instant nextAttemptAt = readNextAttemptAt(eventId);
+
+        RegisteredEvent registered = RegisteredEvent.builder()
+                    .event(event)
+                    .retryCount(retryCount)
+                    .nextAttemptAt(nextAttemptAt)
+                    .build();
+
+        return Optional.of(registered);
     }
 
     public List<RegisteredEvent> findDue(Instant now, int batchSize) {
         if (batchSize <= 0) {
             return Collections.emptyList();
         }
-        Set<String> eventIds = redisTemplate.opsForZSet()
-            .rangeByScore(PENDING_ZSET_KEY, Double.NEGATIVE_INFINITY, now.toEpochMilli(), 0, batchSize);
-        if (eventIds == null || eventIds.isEmpty()) {
+        Set<org.springframework.data.redis.core.ZSetOperations.TypedTuple<String>> tuples = redisTemplate.opsForZSet()
+            .rangeByScoreWithScores(PENDING_ZSET_KEY, Double.NEGATIVE_INFINITY, now.toEpochMilli(), 0, batchSize);
+        if (tuples == null || tuples.isEmpty()) {
             return Collections.emptyList();
         }
-        List<String> idList = new ArrayList<>(eventIds);
+        List<String> idList = tuples.stream()
+            .map(org.springframework.data.redis.core.ZSetOperations.TypedTuple::getValue)
+            .toList();
         List<String> eventKeys = idList.stream().map(this::eventKey).toList();
         List<String> payloads = redisTemplate.opsForValue().multiGet(eventKeys);
         List<Object> retryCounts = redisTemplate.opsForHash().multiGet(RETRY_HASH_KEY, new ArrayList<>(idList));
+        var scoreById = tuples.stream()
+            .filter(tuple -> tuple.getValue() != null && tuple.getScore() != null)
+            .collect(Collectors.toMap(
+                org.springframework.data.redis.core.ZSetOperations.TypedTuple::getValue,
+                tuple -> tuple.getScore()
+            ));
 
         List<RegisteredEvent> results = new ArrayList<>(idList.size());
         for (int i = 0; i < idList.size(); i++) {
@@ -157,7 +175,16 @@ public class EventRegistry {
             if (retryCounts != null && retryCounts.size() > i && retryCounts.get(i) != null) {
                 retry = Long.parseLong(retryCounts.get(i).toString());
             }
-            results.add(new RegisteredEvent(event, retry));
+            Double score = scoreById.get(idList.get(i));
+            Instant nextAttemptAt = score == null ? null : Instant.ofEpochMilli(score.longValue());
+
+            RegisteredEvent registered = RegisteredEvent.builder()
+                    .event(event)
+                    .retryCount(retry)
+                    .nextAttemptAt(nextAttemptAt)
+                    .build();
+
+            results.add(registered);
         }
         return results;
     }
@@ -192,9 +219,17 @@ public class EventRegistry {
         }
     }
 
+    private Instant readNextAttemptAt(String eventId) {
+        Double score = redisTemplate.opsForZSet().score(PENDING_ZSET_KEY, eventId);
+        if (score == null) {
+            return null;
+        }
+        return Instant.ofEpochMilli(score.longValue());
+    }
+
     private String eventKey(String eventId) {
         return EVENT_KEY_PREFIX + eventId;
     }
 
-    public record RegisteredEvent(Event event, long retryCount) {}
+    
 }

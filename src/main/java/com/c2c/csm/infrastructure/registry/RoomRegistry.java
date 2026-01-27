@@ -3,6 +3,7 @@ package com.c2c.csm.infrastructure.registry;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -13,6 +14,9 @@ import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Component;
 
 import com.c2c.csm.common.util.IdGenerator;
+import com.c2c.csm.infrastructure.registry.dto.Room;
+import com.c2c.csm.infrastructure.registry.dto.RoomEntry;
+import com.c2c.csm.infrastructure.registry.dto.RoomSummary;
 
 import lombok.RequiredArgsConstructor;
 
@@ -107,14 +111,24 @@ public class RoomRegistry {
 		if (ownerId == null || ownerId.isBlank()) {
 			return Optional.empty();
 		}
-		Room room = new Room(IdGenerator.generateId("room"), ownerId, Instant.now());
+		Room room = Room.builder()
+						.ownerId(ownerId)
+						.roomId(IdGenerator.generateId("room"))
+						.createdAt(Instant.now())
+						.build();
+						
 		Long result = redisTemplate.execute(
 			CREATE_ROOM_SCRIPT,
 			List.of(roomMetaKey(room.getRoomId())),
 			room.getOwnerId(),
 			Long.toString(room.getCreatedAt().toEpochMilli())
 		);
-		return isSuccess(result) ? Optional.of(room) : Optional.empty();
+
+		if(isSuccess(result)){
+			saveJoinApproveToken(room.getRoomId(), ownerId);
+			return Optional.of(room);
+		}
+		else return Optional.empty();
 	}
 
 	// 방 소유자 조회
@@ -128,6 +142,33 @@ public class RoomRegistry {
 		}
 		String value = ownerId.toString();
 		return value.isBlank() ? Optional.empty() : Optional.of(value);
+	}
+
+	public Optional<RoomSummary> getRoomSummary(String roomId) {
+		if (roomId == null || roomId.isBlank()) {
+			return Optional.empty();
+		}
+		Optional<String> ownerId = findOwnerId(roomId);
+		if (ownerId.isEmpty()) {
+			return Optional.empty();
+		}
+		Set<String> members = findMembers(roomId);
+		List<RoomEntry> entries = members.stream()
+			.filter(memberId -> memberId != null && !memberId.isBlank())
+			.map(memberId -> RoomEntry.builder()
+				.userId(memberId)
+				.nickname(findMemberNickname(roomId, memberId).orElse(null))
+				.build())
+			.sorted(Comparator.comparing(RoomEntry::getUserId, Comparator.nullsLast(String::compareTo)))
+			.toList();
+
+		RoomSummary summary = RoomSummary.builder()
+			.roomId(roomId)
+			.ownerId(ownerId.get())
+			.entries(entries)
+			.build();
+
+		return Optional.of(summary);
 	}
 
 	// 참여 승인 토큰 저장 (방 존재 확인 후 TTL 적용)

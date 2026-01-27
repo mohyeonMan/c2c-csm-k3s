@@ -1,0 +1,46 @@
+package com.c2c.csm.application.service.command;
+
+import org.springframework.stereotype.Service;
+
+import com.c2c.csm.application.model.Action;
+import com.c2c.csm.application.model.Command;
+import com.c2c.csm.application.port.out.event.EventPublishUsecase;
+import com.c2c.csm.application.port.out.presenece.SessionPresencePort;
+import com.c2c.csm.common.util.CommonMapper;
+import com.c2c.csm.infrastructure.registry.RoomRegistry;
+import com.c2c.csm.infrastructure.registry.dto.Room;
+
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
+@Service
+public class RoomCreateCommandHandler extends AbstractCommandHandler{
+    private final RoomRegistry roomRegistry;
+
+    public RoomCreateCommandHandler(
+        EventPublishUsecase eventPublishUsecase,
+        SessionPresencePort sessionPresencePort,
+        CommonMapper commonMapper,
+        RoomRegistry roomRegistry
+    ) {
+        super(eventPublishUsecase, sessionPresencePort, commonMapper);
+        this.roomRegistry = roomRegistry;
+    }
+
+    @Override
+    public Action supports() {
+        return Action.ROOM_CREATE;
+    }
+
+
+
+    @Override
+    protected Object doHandle(Command command) {
+
+        String userId = command.getUserId();
+        Room room = roomRegistry.createRoom(userId).orElseThrow(() -> new RuntimeException("방 생성 실패"));
+
+        return room;
+    }
+
+}

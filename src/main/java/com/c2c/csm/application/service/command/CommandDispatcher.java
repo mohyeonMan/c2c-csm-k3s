@@ -33,7 +33,14 @@ public class CommandDispatcher implements CommandDispatcherUseCase{
     @Override
     public void dispatchCommand(Command command) {
         CommandHandler handler = commandHandlerMap.get(command.getAction());
-        handler.handle(command);        
+        if (handler == null) {
+            handler = commandHandlerMap.get(Action.UNKNOWN);
+        }
+        if (handler == null) {
+            log.warn("No handler for action: {}", command.getAction());
+            return;
+        }
+        handler.handle(command);
     }
 
 }

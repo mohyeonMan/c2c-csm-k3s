@@ -1,4 +1,4 @@
-package com.c2c.csm.infrastructure.registry;
+package com.c2c.csm.infrastructure.registry.dto;
 
 import java.time.Instant;
 
@@ -11,6 +11,4 @@ public class Room {
 	private final String roomId;
 	private final String ownerId;
 	private final Instant createdAt;
-
-
 }
