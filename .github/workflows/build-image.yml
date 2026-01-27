@@ -1,0 +1,83 @@
+name: build-and-push
+
+on:
+  push:
+    # deploy 브랜치에 푸시될 때만 동작하도록 한 설정
+    branches: ["deploy"]
+
+permissions:
+  # 패키지(GHCR)로 푸시하려고 쓰는 권한
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    # 이미지 빌드/푸시만 하는 단일 잡
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        # 소스 가져오는 단계
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        # 멀티 아키텍처 빌드 대비용
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        # buildx 활성화하는 단계
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        # GHCR 로그인하는 단계
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        # 이미지 태그/라벨 뽑는 단계
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}
+          # deploy 브랜치가 기본 브랜치일 때만 latest 붙이는 설정
+          tags: |
+            type=sha
+            type=ref,event=tag
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push
+        # 최종 빌드 후 GHCR로 푸시하는 단계
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          
+      # - name: Checkout infra repo
+      #   uses: actions/checkout@v4
+      #   with:
+      #     repository: mohyeonMan/home-k3s-infra
+      #     ref: main
+      #     token: ${{ secrets.INFRA_REPO_TOKEN }}
+      #     path: infra
+
+      # - name: Update kustomization tag
+      #   run: |
+      #     cd infra
+      #     SHORT_SHA="${GITHUB_SHA::7}"
+      #     yq -i ".images[0].newTag = \"sha-${SHORT_SHA}\"" apps/c2c/csm/kustomization.yaml
+
+      # - name: Commit and push
+      #   run: |
+      #     cd infra
+      #     SHORT_SHA="${GITHUB_SHA::7}"
+      #     git config user.name "github-actions[bot]"
+      #     git config user.email "github-actions[bot]@users.noreply.github.com"
+      #     git add apps/c2c/csm/kustomization.yaml
+      #     git commit -m "deployment: update image tag [sha-${SHORT_SHA}]" || exit 0
+      #     git push
+
