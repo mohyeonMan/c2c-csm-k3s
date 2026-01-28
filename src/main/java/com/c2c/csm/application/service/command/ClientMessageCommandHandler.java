@@ -44,6 +44,13 @@ public class ClientMessageCommandHandler extends AbstractCommandHandler {
         String userId = command.getUserId();
         String roomId = payload.roomId();
         String message = payload.message();
+        int messageLength = message == null ? 0 : message.length();
+        log.info(
+            "command: client message start userId={}, roomId={}, messageLength={}",
+            userId,
+            roomId,
+            messageLength
+        );
 
         String nickname = roomRegistry.findMemberNickname(roomId, userId)
             .orElseThrow(() -> new RuntimeException("닉네임을 찾을 수 없음"));
@@ -61,6 +68,7 @@ public class ClientMessageCommandHandler extends AbstractCommandHandler {
             sendEvent(event);
         });
 
+        log.info("command: client message success userId={}, roomId={}", userId, roomId);
         return messagePayload;
     }
 }

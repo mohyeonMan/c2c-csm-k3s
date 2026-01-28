@@ -46,6 +46,13 @@ public class JoinApproveCommandHandler extends AbstractCommandHandler{
         String targetRoomId = payload.roomId();
         String requestedUserId = payload.requestedUserId();
         boolean approved = payload.approved();
+        log.info(
+            "command: join approve start ownerId={}, roomId={}, requestedUserId={}, approved={}",
+            userId,
+            targetRoomId,
+            requestedUserId,
+            approved
+        );
         
         String ownerId = roomRegistry.findOwnerId(targetRoomId).orElseThrow(() -> new RuntimeException("방을 찾을 수 없음."));
         if(!ownerId.equals(userId)) throw new RuntimeException("방장 아님.");
@@ -59,6 +66,12 @@ public class JoinApproveCommandHandler extends AbstractCommandHandler{
             "approved", approved
         );
 
+        log.info(
+            "command: join approve notify requestedUserId={}, roomId={}, approved={}",
+            requestedUserId,
+            targetRoomId,
+            approved
+        );
         Event approvedEvent = buildEvent(command, requestedUserId, EventType.NOTIFY, Action.JOIN_APPROVE, joinApprovePayload, Status.SUCCESS);
         sendEvent(approvedEvent);
 

@@ -28,6 +28,13 @@ public class UnknownCommandHandler extends AbstractCommandHandler {
 
     @Override
     protected Object doHandle(Command command) {
+        log.info(
+            "command: unknown action={}, commandId={}, requestId={}, userId={}",
+            command.getAction(),
+            command.getCommandId(),
+            command.getRequestId(),
+            command.getUserId()
+        );
         throw new RuntimeException("Unknown action: " + command.getAction());
     }
 }

@@ -26,10 +26,31 @@ public abstract class AbstractCommandHandler implements CommandHandler {
     @Override
     public void handle(Command command) {
         try {
+            log.info(
+                "command: handle start action={}, commandId={}, requestId={}, userId={}",
+                command.getAction(),
+                command.getCommandId(),
+                command.getRequestId(),
+                command.getUserId()
+            );
             Object resultPayload = doHandle(command);
+            log.info(
+                "command: handle success action={}, commandId={}, requestId={}, userId={}",
+                command.getAction(),
+                command.getCommandId(),
+                command.getRequestId(),
+                command.getUserId()
+            );
             sendResult(command, resultPayload);
         } catch (Exception ex) {
-            log.error("Error handling command: {}", command, ex);
+            log.error(
+                "command: handle error action={}, commandId={}, requestId={}, userId={}",
+                command.getAction(),
+                command.getCommandId(),
+                command.getRequestId(),
+                command.getUserId(),
+                ex
+            );
             sendErrorResult(command, ex);
         }
     }
@@ -37,6 +58,14 @@ public abstract class AbstractCommandHandler implements CommandHandler {
     protected abstract Object doHandle(Command command);
 
     protected void sendEvent(Event event){
+        log.info(
+            "command: send event action={}, eventId={}, userId={}, type={}, status={}",
+            event.getAction(),
+            event.getEventId(),
+            event.getUserId(),
+            event.getType(),
+            event.getStatus()
+        );
         String routingKey = sessionPresencePort.getRoutingKeyByUserId(event.getUserId());
         eventPublishUsecase.saveAndPublish(routingKey, event);
     }
@@ -66,11 +95,27 @@ public abstract class AbstractCommandHandler implements CommandHandler {
     }
 
     protected void sendResult(Command command, Object payload){
+        log.info(
+            "command: send result action={}, commandId={}, requestId={}, userId={}, status={}",
+            command.getAction(),
+            command.getCommandId(),
+            command.getRequestId(),
+            command.getUserId(),
+            Status.SUCCESS
+        );
         Event result = buildResult(command, Status.SUCCESS, payload);
         sendEvent(result);
     }
 
     protected void sendErrorResult(Command command, Exception ex){
+        log.info(
+            "command: send error result action={}, commandId={}, requestId={}, userId={}, status={}",
+            command.getAction(),
+            command.getCommandId(),
+            command.getRequestId(),
+            command.getUserId(),
+            Status.ERROR
+        );
         String errorPayload = null;
         Event result = buildResult(command, Status.ERROR, errorPayload);
         sendEvent(result);

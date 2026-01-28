@@ -46,14 +46,32 @@ public class JoinRequestCommandHandler extends AbstractCommandHandler{
         String requestedUserId = command.getUserId();
         String targetRoomId = payload.roomId();
         String nickName = payload.nickName();
+        log.info(
+            "command: join request start userId={}, roomId={}, nickname={}",
+            requestedUserId,
+            targetRoomId,
+            nickName
+        );
 
         // 토큰이 이미 있는 경우.
         boolean hasToken = roomRegistry.hasJoinApproveToken(targetRoomId, requestedUserId);
-        if(hasToken) return approveDirectly(command, requestedUserId, targetRoomId);
+        if(hasToken) {
+            log.info(
+                "command: join request direct approve userId={}, roomId={}",
+                requestedUserId,
+                targetRoomId
+            );
+            return approveDirectly(command, requestedUserId, targetRoomId);
+        }
         
         // 본인이 만든 방인 경우.
         String ownerId = roomRegistry.findOwnerId(targetRoomId).orElseThrow(() -> new RuntimeException(" 방을 찾을 수 없음."));
         if(ownerId.equals(requestedUserId)) {
+            log.info(
+                "command: join request owner direct approve ownerId={}, roomId={}",
+                ownerId,
+                targetRoomId
+            );
             return approveDirectly(command, requestedUserId, targetRoomId);
         }
 
@@ -64,6 +82,12 @@ public class JoinRequestCommandHandler extends AbstractCommandHandler{
         );
 
         // onwer에게 알림.
+        log.info(
+            "command: join request notify ownerId={}, requestedUserId={}, roomId={}",
+            ownerId,
+            requestedUserId,
+            targetRoomId
+        );
         Event requestEvent = buildEvent(command, ownerId, EventType.NOTIFY, Action.JOIN_REQUEST, joinRequestPayload, Status.SUCCESS);
         sendEvent(requestEvent);
 

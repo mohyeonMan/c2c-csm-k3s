@@ -20,6 +20,12 @@ public class AcknowledgeService implements AcknowledgeUseCase{
 
     @Override
     public void acknowledgeEvent(AckDto ackDto) {
+        log.info(
+            "ack: start ackId={}, eventId={}, sentAt={}",
+            ackDto.getAckId(),
+            ackDto.getEventId(),
+            ackDto.getSentAt()
+        );
         
         Ack ack = Ack.builder()
                     .ackId(ackDto.getAckId())
@@ -28,9 +34,10 @@ public class AcknowledgeService implements AcknowledgeUseCase{
                     .build();
 
         String eventId = ack.getEventId();
+        log.info("ack: remove eventId={}", eventId);
 
-        log.info("ACK 처리 : {}",eventId);
         registry.remove(eventId);
+        log.info("ack: success eventId={}", eventId);
         
     }
 

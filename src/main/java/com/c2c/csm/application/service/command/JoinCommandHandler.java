@@ -47,6 +47,12 @@ public class JoinCommandHandler extends AbstractCommandHandler{
         String joiningUserId = command.getUserId();
         String targetRoomId = payload.roomId();
         String nickName = payload.nickName();
+        log.info(
+            "command: join start userId={}, roomId={}, nickname={}",
+            joiningUserId,
+            targetRoomId,
+            nickName
+        );
         
         boolean hasToken = roomRegistry.hasJoinApproveToken(targetRoomId, joiningUserId);
 
@@ -73,7 +79,12 @@ public class JoinCommandHandler extends AbstractCommandHandler{
             Event event = buildEvent(command, targetUserId, EventType.NOTIFY, Action.JOIN, notifyPayload, Status.SUCCESS);
             sendEvent(event);
         });
-        
+        log.info(
+            "command: join success userId={}, roomId={}, members={}",
+            joiningUserId,
+            targetRoomId,
+            summary.getEntries().size()
+        );
         return summary;
     }
     

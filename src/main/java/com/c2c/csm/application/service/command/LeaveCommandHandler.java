@@ -44,6 +44,7 @@ public class LeaveCommandHandler extends AbstractCommandHandler{
         LeavePayload payload = parsePayload(command.getPayload(), LeavePayload.class);
         String leavingUserId = command.getUserId();
         String targetRoomId = payload.roomId();
+        log.info("command: leave start userId={}, roomId={}", leavingUserId, targetRoomId);
 
         String previousOwnerId = roomRegistry.findOwnerId(targetRoomId).orElseThrow(()-> new RuntimeException("방 없음."));
 
@@ -71,6 +72,7 @@ public class LeaveCommandHandler extends AbstractCommandHandler{
             sendEvent(event);
         });
 
+        log.info("command: leave success userId={}, roomId={}", leavingUserId, targetRoomId);
         return Map.of(
             "roomId", targetRoomId
             );

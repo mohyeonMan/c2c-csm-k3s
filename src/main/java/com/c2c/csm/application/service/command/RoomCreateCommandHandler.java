@@ -38,7 +38,9 @@ public class RoomCreateCommandHandler extends AbstractCommandHandler{
     protected Object doHandle(Command command) {
 
         String userId = command.getUserId();
+        log.info("command: room create start userId={}", userId);
         Room room = roomRegistry.createRoom(userId).orElseThrow(() -> new RuntimeException("방 생성 실패"));
+        log.info("command: room create success userId={}, roomId={}", userId, room.getRoomId());
 
         return room;
     }
