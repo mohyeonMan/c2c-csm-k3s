@@ -7,6 +7,7 @@ import org.springframework.stereotype.Component;
 import com.c2c.csm.adapter.out.mq.dto.EventDto;
 import com.c2c.csm.application.model.Event;
 import com.c2c.csm.application.port.out.event.PublishEventPort;
+import com.c2c.csm.common.util.TimeFormat;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -38,7 +39,7 @@ public class RabbitMqEventPulisher implements PublishEventPort{
                 .action(event.getAction().name())
                 .payload(event.getPayload())
                 .status(event.getStatus().name())
-                .sentAt(event.getSentAt().toString())
+                .sentAt(TimeFormat.format(event.getSentAt()))
                 .build();
 
         rabbitTemplate.convertAndSend(exchange, routingKey, eventDto);

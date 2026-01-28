@@ -14,7 +14,6 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class AcknowledgeService implements AcknowledgeUseCase{
     private final EventRegistry registry;
-    //acknowledge 처리 로직 구현
 
     @Override
     public void acknowledgeEvent(Ack ack) {
