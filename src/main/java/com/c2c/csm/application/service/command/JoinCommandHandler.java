@@ -1,7 +1,5 @@
 package com.c2c.csm.application.service.command;
 
-import java.util.Map;
-
 import org.springframework.stereotype.Service;
 
 import com.c2c.csm.application.model.Action;
@@ -12,7 +10,8 @@ import com.c2c.csm.application.model.Status;
 import com.c2c.csm.application.port.out.event.EventPublishUsecase;
 import com.c2c.csm.application.port.out.presenece.SessionPresencePort;
 import com.c2c.csm.common.util.CommonMapper;
-import com.c2c.csm.infrastructure.registry.RoomRegistry;
+import com.c2c.csm.application.service.room.RoomRegistryService;
+import com.c2c.csm.application.service.room.RoomRegistryService.JoinResult;
 import com.c2c.csm.infrastructure.registry.dto.RoomSummary;
 
 import lombok.extern.slf4j.Slf4j;
@@ -20,16 +19,16 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Service
 public class JoinCommandHandler extends AbstractCommandHandler{
-    private final RoomRegistry roomRegistry;
+    private final RoomRegistryService roomRegistryService;
 
     public JoinCommandHandler(
         EventPublishUsecase eventPublishUsecase,
         SessionPresencePort sessionPresencePort,
         CommonMapper commonMapper,
-        RoomRegistry roomRegistry
+        RoomRegistryService roomRegistryService
     ) {
         super(eventPublishUsecase, sessionPresencePort, commonMapper);
-        this.roomRegistry = roomRegistry;
+        this.roomRegistryService = roomRegistryService;
     }
 
     @Override
@@ -54,23 +53,9 @@ public class JoinCommandHandler extends AbstractCommandHandler{
             nickName
         );
         
-        boolean hasToken = roomRegistry.hasJoinApproveToken(targetRoomId, joiningUserId);
-
-        if(!hasToken) throw new RuntimeException("입장권한 없음.");
-
-        boolean aleadyJoined = roomRegistry.isMember(targetRoomId, joiningUserId);
-        if(aleadyJoined) throw new RuntimeException("이미 join한 상태.");
-
-        boolean joined = roomRegistry.addMemberWithNickname(targetRoomId, joiningUserId, nickName);
-
-        if(!joined) throw new RuntimeException("입장 실패.");
-
-        RoomSummary summary = roomRegistry.getRoomSummary(targetRoomId).orElseThrow(() -> new RuntimeException());
-
-        Object notifyPayload = Map.of(
-            "userId", joiningUserId,
-            "nickname", nickName
-        );
+        JoinResult joinResult = roomRegistryService.joinRoom(targetRoomId, joiningUserId, nickName);
+        Object notifyPayload = joinResult.notifyPayload();
+        RoomSummary summary = joinResult.summary();
 
 
         //참여자들에게 알림.

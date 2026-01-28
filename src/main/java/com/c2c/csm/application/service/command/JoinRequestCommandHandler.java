@@ -1,7 +1,5 @@
 package com.c2c.csm.application.service.command;
 
-import java.util.Map;
-
 import org.springframework.stereotype.Service;
 
 import com.c2c.csm.application.model.Action;
@@ -11,24 +9,25 @@ import com.c2c.csm.application.model.EventType;
 import com.c2c.csm.application.model.Status;
 import com.c2c.csm.application.port.out.event.EventPublishUsecase;
 import com.c2c.csm.application.port.out.presenece.SessionPresencePort;
+import com.c2c.csm.application.service.room.RoomRegistryService;
+import com.c2c.csm.application.service.room.RoomRegistryService.JoinRequestResult;
 import com.c2c.csm.common.util.CommonMapper;
-import com.c2c.csm.infrastructure.registry.RoomRegistry;
 
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Service
 public class JoinRequestCommandHandler extends AbstractCommandHandler{
-    private final RoomRegistry roomRegistry;
+    private final RoomRegistryService roomRegistryService;
     
     public JoinRequestCommandHandler(
         EventPublishUsecase eventPublishUsecase,
         SessionPresencePort sessionPresencePort,
         CommonMapper commonMapper,
-        RoomRegistry roomRegistry
+        RoomRegistryService roomRegistryService
     ) {
         super(eventPublishUsecase, sessionPresencePort, commonMapper);
-        this.roomRegistry = roomRegistry;
+        this.roomRegistryService = roomRegistryService;
     }
 
     public record JoinRequestPayload(String roomId, String nickName) {}
@@ -53,59 +52,27 @@ public class JoinRequestCommandHandler extends AbstractCommandHandler{
             nickName
         );
 
-        // 토큰이 이미 있는 경우.
-        boolean hasToken = roomRegistry.hasJoinApproveToken(targetRoomId, requestedUserId);
-        if(hasToken) {
+        JoinRequestResult result = roomRegistryService.prepareJoinRequest(targetRoomId, requestedUserId, nickName);
+        Action action = result.directApprove() ? Action.JOIN_APPROVE : Action.JOIN_REQUEST;
+
+        if (result.directApprove()) {
             log.info(
                 "command: join request direct approve userId={}, roomId={}",
                 requestedUserId,
                 targetRoomId
             );
-            return approveDirectly(command, requestedUserId, targetRoomId);
-        }
-        
-        // 본인이 만든 방인 경우.
-        String ownerId = roomRegistry.findOwnerId(targetRoomId).orElseThrow(() -> new RuntimeException(" 방을 찾을 수 없음."));
-        if(ownerId.equals(requestedUserId)) {
+        } else {
             log.info(
-                "command: join request owner direct approve ownerId={}, roomId={}",
-                ownerId,
+                "command: join request notify ownerId={}, requestedUserId={}, roomId={}",
+                result.targetUserId(),
+                requestedUserId,
                 targetRoomId
             );
-            return approveDirectly(command, requestedUserId, targetRoomId);
         }
 
-        Object joinRequestPayload = Map.of(
-            "requestedUserId", requestedUserId,
-            "nickname", nickName,
-            "roomId", targetRoomId
-        );
-
-        // onwer에게 알림.
-        log.info(
-            "command: join request notify ownerId={}, requestedUserId={}, roomId={}",
-            ownerId,
-            requestedUserId,
-            targetRoomId
-        );
-        Event requestEvent = buildEvent(command, ownerId, EventType.NOTIFY, Action.JOIN_REQUEST, joinRequestPayload, Status.SUCCESS);
+        Event requestEvent = buildEvent(command, result.targetUserId(), EventType.NOTIFY, action, result.payload(), Status.SUCCESS);
         sendEvent(requestEvent);
 
-        return joinRequestPayload;
-    }
-
-    private Object approveDirectly(
-        Command command,
-        String requestedUserId,
-        String targetRoomId
-    ){
-        Object joinApprovePayload = Map.of(
-            "requestedUserId", requestedUserId,
-            "roomId", targetRoomId,
-            "approved", true
-        );
-        Event approvedEvent = buildEvent(command, requestedUserId, EventType.NOTIFY, Action.JOIN_APPROVE, joinApprovePayload, Status.SUCCESS);
-        sendEvent(approvedEvent);
-        return joinApprovePayload;
+        return result.payload();
     }
 }

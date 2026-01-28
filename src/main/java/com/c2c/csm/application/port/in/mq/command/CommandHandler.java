@@ -8,6 +8,6 @@ public interface CommandHandler {
     
     Action supports();
 
-    void handle(Command message);
+    void handle(Command command);
 
 }
