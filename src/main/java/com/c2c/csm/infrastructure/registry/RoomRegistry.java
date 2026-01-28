@@ -77,8 +77,13 @@ public class RoomRegistry {
 			redis.call('SREM', KEYS[2], ARGV[2])
 			redis.call('DEL', KEYS[4])
 			if redis.call('SCARD', KEYS[1]) == 0 then
+			  local approved = redis.call('SMEMBERS', KEYS[5])
+			  for i = 1, #approved do
+			    redis.call('DEL', ARGV[3] .. approved[i])
+			  end
 			  redis.call('DEL', KEYS[1])
 			  redis.call('DEL', KEYS[3])
+			  redis.call('DEL', KEYS[5])
 			  return 1
 			end
 			if ownerId == ARGV[1] then
@@ -239,9 +244,16 @@ public class RoomRegistry {
 		}
 		Long result = redisTemplate.execute(
 			REMOVE_MEMBER_SCRIPT,
-			List.of(roomMembersKey(roomId), userRoomsKey(userId), roomMetaKey(roomId), roomUserNicknameKey(roomId, userId)),
+			List.of(
+				roomMembersKey(roomId),
+				userRoomsKey(userId),
+				roomMetaKey(roomId),
+				roomUserNicknameKey(roomId, userId),
+				roomApprovedKey(roomId)
+			),
 			userId,
-			roomId
+			roomId,
+			joinApprovePrefix(roomId)
 		);
 		return isSuccess(result);
 	}
