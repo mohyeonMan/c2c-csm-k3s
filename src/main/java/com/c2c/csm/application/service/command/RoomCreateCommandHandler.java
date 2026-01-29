@@ -1,16 +1,15 @@
-package com.c2c.csm.application.service.command;
+﻿package com.c2c.csm.application.service.command;
 
 import org.springframework.stereotype.Service;
 
-import com.c2c.csm.adapter.out.mq.dto.RoomDto;
 import com.c2c.csm.application.model.Action;
 import com.c2c.csm.application.model.Command;
 import com.c2c.csm.application.port.out.event.EventPublishUsecase;
 import com.c2c.csm.application.port.out.presenece.SessionPresencePort;
 import com.c2c.csm.common.util.CommonMapper;
-import com.c2c.csm.common.util.TimeFormat;
 import com.c2c.csm.infrastructure.registry.RoomRegistry;
 import com.c2c.csm.infrastructure.registry.dto.Room;
+import com.c2c.csm.infrastructure.registry.dto.RoomSummary;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -34,21 +33,31 @@ public class RoomCreateCommandHandler extends AbstractCommandHandler{
         return Action.ROOM_CREATE;
     }
 
-
+    public record RoomCreatePayload(String nickName) {}
 
     @Override
     protected Object doHandle(Command command) {
-
+        RoomCreatePayload payload = parsePayload(command.getPayload(), RoomCreatePayload.class);
         String userId = command.getUserId();
+        String nickName = payload == null ? null : payload.nickName();
+
+        if (nickName == null || nickName.isBlank()) {
+            throw new RuntimeException("nickname required");
+        }
+
         log.info("command: room create start userId={}", userId);
-        Room room = roomRegistry.createRoom(userId).orElseThrow(() -> new RuntimeException("방 생성 실패"));
+        Room room = roomRegistry.createRoom(userId)
+            .orElseThrow(() -> new RuntimeException("room create failed"));
         log.info("command: room create success userId={}, roomId={}", userId, room.getRoomId());
 
-        return RoomDto.builder()
-                .roomId(room.getRoomId())
-                .ownerId(room.getOwnerId())
-                .createdAt(TimeFormat.format(room.getCreatedAt()))
-                .build();
+        boolean joined = roomRegistry.addMemberWithNickname(room.getRoomId(), userId, nickName);
+        if (!joined) {
+            roomRegistry.deleteRoom(room.getRoomId());
+            throw new RuntimeException("room join failed");
+        }
+
+        return roomRegistry.getRoomSummary(room.getRoomId())
+            .orElseThrow(() -> new RuntimeException("room summary failed"));
     }
 
 }
