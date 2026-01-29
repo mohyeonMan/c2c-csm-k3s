@@ -75,9 +75,13 @@ jobs:
         run: |
           cd infra
           SHORT_SHA="${GITHUB_SHA::7}"
+          REPO_NAME="${GITHUB_REPOSITORY##*/}"
+
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add apps/c2c/csm/kustomization.yaml
-          git commit -m "deployment: update image tag [sha-${SHORT_SHA}]" || exit 0
+
+          git add apps/c2c/ws/kustomization.yaml
+          git commit -m "deployment: ${REPO_NAME} image tag [sha-${SHORT_SHA}]" || exit 0
           git push
+
 
