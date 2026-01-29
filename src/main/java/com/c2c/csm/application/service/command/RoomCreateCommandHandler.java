@@ -9,7 +9,6 @@ import com.c2c.csm.application.port.out.presenece.SessionPresencePort;
 import com.c2c.csm.common.util.CommonMapper;
 import com.c2c.csm.infrastructure.registry.RoomRegistry;
 import com.c2c.csm.infrastructure.registry.dto.Room;
-import com.c2c.csm.infrastructure.registry.dto.RoomSummary;
 
 import lombok.extern.slf4j.Slf4j;
 
