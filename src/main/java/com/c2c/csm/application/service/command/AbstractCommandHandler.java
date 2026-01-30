@@ -1,6 +1,7 @@
 package com.c2c.csm.application.service.command;
 
 import java.time.Instant;
+import java.util.Map;
 
 import com.c2c.csm.application.model.Action;
 import com.c2c.csm.application.model.Command;
@@ -116,7 +117,10 @@ public abstract class AbstractCommandHandler implements CommandHandler {
             command.getUserId(),
             Status.ERROR
         );
-        String errorPayload = null;
+        Object errorPayload = Map.of(
+            "code", ex.getClass(),
+            "reason", ex.getMessage()
+        );
         Event result = buildResult(command, Status.ERROR, errorPayload);
         sendEvent(result);
     }   
