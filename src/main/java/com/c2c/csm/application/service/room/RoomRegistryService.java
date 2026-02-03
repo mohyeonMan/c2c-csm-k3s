@@ -6,6 +6,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.time.Instant;
 
 import org.springframework.stereotype.Service;
 
@@ -25,6 +27,8 @@ public class RoomRegistryService {
     public record JoinRequestResult(boolean directApprove, String targetUserId, Map<String, Object> payload) {}
     public record LeaveResult(String roomId, Map<String, Object> notifyPayload, Set<String> remainingMembers) {}
     public record LeaveAllResult(Set<String> rooms, List<LeaveResult> results) {}
+    public record PresenceResult(String roomId, Map<String, Object> notifyPayload, Set<String> onlineMembers) {}
+    public record PresenceAllResult(Set<String> rooms, List<PresenceResult> results) {}
 
     public JoinResult joinRoom(String roomId, String userId, String nickname) {
         if (!roomRegistry.hasJoinApproveToken(roomId, userId)) {
@@ -131,7 +135,7 @@ public class RoomRegistryService {
             );
         }
 
-        return new LeaveResult(roomId, notifyPayload, roomRegistry.findMembers(roomId));
+        return new LeaveResult(roomId, notifyPayload, roomRegistry.findOnlineMembers(roomId));
     }
 
     public Optional<LeaveResult> leaveRoomIfMember(String roomId, String userId) {
@@ -187,7 +191,7 @@ public class RoomRegistryService {
             );
         }
 
-        return Optional.of(new LeaveResult(roomId, notifyPayload, roomRegistry.findMembers(roomId)));
+        return Optional.of(new LeaveResult(roomId, notifyPayload, roomRegistry.findOnlineMembers(roomId)));
     }
 
     public LeaveAllResult leaveAllRoomsForDisconnect(String userId) {
@@ -197,5 +201,81 @@ public class RoomRegistryService {
             leaveRoomForDisconnect(roomId, userId).ifPresent(results::add);
         }
         return new LeaveAllResult(rooms, results);
+    }
+
+    public List<RoomSummary> listRoomSummaries(String userId) {
+        Set<String> rooms = roomRegistry.findRooms(userId);
+        return rooms.stream()
+            .map(roomRegistry::getRoomSummary)
+            .filter(Optional::isPresent)
+            .map(Optional::get)
+            .sorted((left, right) -> left.getRoomId().compareTo(right.getRoomId()))
+            .collect(Collectors.toList());
+    }
+
+    public PresenceResult markOnline(String roomId, String userId) {
+        if (roomId == null || roomId.isBlank()) {
+            throw new RuntimeException("roomId required.");
+        }
+        if (!roomRegistry.isMember(roomId, userId)) {
+            throw new RuntimeException("not a room member.");
+        }
+        String nickname = roomRegistry.findMemberNickname(roomId, userId)
+            .orElse(null);
+        roomRegistry.markOnline(roomId, userId);
+
+        Map<String, Object> notifyPayload = new HashMap<>();
+        notifyPayload.put("userId", userId);
+        if (nickname != null) {
+            notifyPayload.put("nickname", nickname);
+        }
+
+        return new PresenceResult(roomId, notifyPayload, roomRegistry.findOnlineMembers(roomId));
+    }
+
+    public Optional<PresenceResult> markOfflineIfMember(String roomId, String userId) {
+        if (roomId == null || roomId.isBlank()) {
+            return Optional.empty();
+        }
+        if (!roomRegistry.isMember(roomId, userId)) {
+            return Optional.empty();
+        }
+
+        boolean marked = roomRegistry.markOffline(roomId, userId);
+        if (!marked) {
+            return Optional.empty();
+        }
+
+        String nickname = roomRegistry.findMemberNickname(roomId, userId)
+            .orElse(null);
+
+        Map<String, Object> notifyPayload = new HashMap<>();
+        notifyPayload.put("userId", userId);
+        if (nickname != null) {
+            notifyPayload.put("nickname", nickname);
+        }
+
+        return Optional.of(new PresenceResult(roomId, notifyPayload, roomRegistry.findOnlineMembers(roomId)));
+    }
+
+    public PresenceAllResult markAllRoomsOffline(String userId) {
+        Set<String> rooms = roomRegistry.findRooms(userId);
+        List<PresenceResult> results = new ArrayList<>();
+        for (String roomId : rooms) {
+            markOfflineIfMember(roomId, userId).ifPresent(results::add);
+        }
+        return new PresenceAllResult(rooms, results);
+    }
+
+    public int deleteExpiredRooms(Instant now) {
+        int deleted = 0;
+        Set<String> rooms = roomRegistry.findAllRooms();
+        for (String roomId : rooms) {
+            if (roomRegistry.isAutoDeleteDue(roomId, now)) {
+                roomRegistry.deleteRoom(roomId);
+                deleted++;
+            }
+        }
+        return deleted;
     }
 }

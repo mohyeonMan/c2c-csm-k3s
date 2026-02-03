@@ -59,8 +59,10 @@ public class JoinCommandHandler extends AbstractCommandHandler{
 
 
         //참여자들에게 알림.
-        summary.getEntries().stream().forEach(entry -> {
-            String targetUserId = entry.getUserId();
+        summary.getEntries().stream()
+            .filter(entry -> entry.isOnline())
+            .forEach(entry -> {
+                String targetUserId = entry.getUserId();
             Event event = buildEvent(command, targetUserId, EventType.NOTIFY, Action.JOIN, notifyPayload, Status.SUCCESS);
             sendEvent(event);
         });

@@ -62,7 +62,7 @@ public class ClientMessageCommandHandler extends AbstractCommandHandler {
             "nickname", nickname
         );
 
-        roomRegistry.findMembers(roomId).forEach(targetUserId -> {
+        roomRegistry.findOnlineMembers(roomId).forEach(targetUserId -> {
             if(targetUserId.equals(userId)) return;
             Event event = buildEvent(command, targetUserId, EventType.MESSAGE, Action.CLIENT_MESSAGE, messagePayload, Status.SUCCESS);
             sendEvent(event);

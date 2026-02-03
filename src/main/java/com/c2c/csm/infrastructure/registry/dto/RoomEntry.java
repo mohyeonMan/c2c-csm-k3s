@@ -8,4 +8,5 @@ import lombok.Getter;
 public class RoomEntry {
     private final String userId;
     private final String nickname;
+    private final boolean online;
 }

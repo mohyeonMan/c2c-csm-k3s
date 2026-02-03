@@ -30,8 +30,11 @@ import lombok.RequiredArgsConstructor;
 public class RoomRegistry {
 	private static final String DEFAULT_ROOM_PREFIX = "room:";
 	private static final String DEFAULT_USER_PREFIX = "user:";
+	private static final String ALL_ROOMS_KEY = "rooms:all";
 	private static final String META_SUFFIX = ":meta";
 	private static final String MEMBERS_SUFFIX = ":members";
+	private static final String ONLINE_SUFFIX = ":online";
+	private static final String LAST_TOUCH_SUFFIX = ":lastTouch";
 	private static final String APPROVED_SUFFIX = ":approved";
 	private static final String ROOMS_SUFFIX = ":rooms";
 	private static final String JOIN_APPROVE_PREFIX = "join:approve:";
@@ -40,6 +43,9 @@ public class RoomRegistry {
 
 	@Value("${c2c.join.approve-ttl:24h}")
 	private Duration joinApproveTtl;
+
+	@Value("${c2c.room.auto-delete-ttl:72h}")
+	private Duration roomAutoDeleteTtl;
 
 	private static final DefaultRedisScript<Long> CREATE_ROOM_SCRIPT = script("""
 			if redis.call('EXISTS', KEYS[1]) == 1 then
@@ -75,6 +81,7 @@ public class RoomRegistry {
 			local ownerId = redis.call('HGET', KEYS[3], 'ownerId')
 			redis.call('SREM', KEYS[1], ARGV[1])
 			redis.call('SREM', KEYS[2], ARGV[2])
+			redis.call('SREM', KEYS[6], ARGV[1])
 			redis.call('DEL', KEYS[4])
 			if redis.call('SCARD', KEYS[1]) == 0 then
 			  local approved = redis.call('SMEMBERS', KEYS[5])
@@ -84,6 +91,9 @@ public class RoomRegistry {
 			  redis.call('DEL', KEYS[1])
 			  redis.call('DEL', KEYS[3])
 			  redis.call('DEL', KEYS[5])
+			  redis.call('DEL', KEYS[6])
+			  redis.call('DEL', KEYS[7])
+			  redis.call('SREM', KEYS[8], ARGV[4])
 			  return 1
 			end
 			if ownerId == ARGV[1] then
@@ -108,6 +118,9 @@ public class RoomRegistry {
 			redis.call('DEL', KEYS[1])
 			redis.call('DEL', KEYS[2])
 			redis.call('DEL', KEYS[3])
+			redis.call('DEL', KEYS[4])
+			redis.call('DEL', KEYS[5])
+			redis.call('SREM', KEYS[6], ARGV[7])
 			return 1
 			""");
 
@@ -131,6 +144,8 @@ public class RoomRegistry {
 
 		if(isSuccess(result)){
 			saveJoinApproveToken(room.getRoomId(), ownerId);
+			touchRoom(room.getRoomId(), room.getCreatedAt());
+			redisTemplate.opsForSet().add(ALL_ROOMS_KEY, room.getRoomId());
 			return Optional.of(room);
 		}
 		else return Optional.empty();
@@ -158,11 +173,15 @@ public class RoomRegistry {
 			return Optional.empty();
 		}
 		Set<String> members = findMembers(roomId);
+		Set<String> onlineMembers = findOnlineMembers(roomId);
+		Instant lastTouch = findLastTouch(roomId).orElse(null);
+		Instant autoDeleteAt = calculateAutoDeleteAt(lastTouch);
 		List<RoomEntry> entries = members.stream()
 			.filter(memberId -> memberId != null && !memberId.isBlank())
 			.map(memberId -> RoomEntry.builder()
 				.userId(memberId)
 				.nickname(findMemberNickname(roomId, memberId).orElse(null))
+				.online(onlineMembers.contains(memberId))
 				.build())
 			.sorted(Comparator.comparing(RoomEntry::getUserId, Comparator.nullsLast(String::compareTo)))
 			.toList();
@@ -171,6 +190,7 @@ public class RoomRegistry {
 			.roomId(roomId)
 			.ownerId(ownerId.get())
 			.entries(entries)
+			.autoDeleteAt(autoDeleteAt)
 			.build();
 
 		return Optional.of(summary);
@@ -249,11 +269,15 @@ public class RoomRegistry {
 				userRoomsKey(userId),
 				roomMetaKey(roomId),
 				roomUserNicknameKey(roomId, userId),
-				roomApprovedKey(roomId)
+				roomApprovedKey(roomId),
+				roomOnlineKey(roomId),
+				roomLastTouchKey(roomId),
+				ALL_ROOMS_KEY
 			),
 			userId,
 			roomId,
-			joinApprovePrefix(roomId)
+			joinApprovePrefix(roomId),
+			roomId
 		);
 		return isSuccess(result);
 	}
@@ -265,6 +289,32 @@ public class RoomRegistry {
 		}
 		Set<String> members = redisTemplate.opsForSet().members(roomMembersKey(roomId));
 		return members == null ? Collections.emptySet() : members;
+	}
+
+	public Set<String> findOnlineMembers(String roomId) {
+		if (roomId == null || roomId.isBlank()) {
+			return Collections.emptySet();
+		}
+		Set<String> members = redisTemplate.opsForSet().members(roomOnlineKey(roomId));
+		return members == null ? Collections.emptySet() : members;
+	}
+
+	public boolean markOnline(String roomId, String userId) {
+		if (roomId == null || roomId.isBlank() || userId == null || userId.isBlank()) {
+			return false;
+		}
+		Long result = redisTemplate.opsForSet().add(roomOnlineKey(roomId), userId);
+		touchRoom(roomId, Instant.now());
+		return result != null && result > 0;
+	}
+
+	public boolean markOffline(String roomId, String userId) {
+		if (roomId == null || roomId.isBlank() || userId == null || userId.isBlank()) {
+			return false;
+		}
+		Long result = redisTemplate.opsForSet().remove(roomOnlineKey(roomId), userId);
+		touchRoom(roomId, Instant.now());
+		return result != null && result > 0;
 	}
 
 	// 유저가 속한 방 목록 조회
@@ -292,13 +342,21 @@ public class RoomRegistry {
 		}
 		redisTemplate.execute(
 			DELETE_ROOM_SCRIPT,
-			List.of(roomMembersKey(roomId), roomMetaKey(roomId), roomApprovedKey(roomId)),
+			List.of(
+				roomMembersKey(roomId),
+				roomMetaKey(roomId),
+				roomApprovedKey(roomId),
+				roomOnlineKey(roomId),
+				roomLastTouchKey(roomId),
+				ALL_ROOMS_KEY
+			),
 			DEFAULT_USER_PREFIX,
 			ROOMS_SUFFIX,
 			roomId,
 			DEFAULT_ROOM_PREFIX + roomId + ":user:",
 			":nickname",
-			joinApprovePrefix(roomId)
+			joinApprovePrefix(roomId),
+			roomId
 		);
 	}
 
@@ -308,6 +366,14 @@ public class RoomRegistry {
 
 	private String roomMembersKey(String roomId) {
 		return DEFAULT_ROOM_PREFIX + roomId + MEMBERS_SUFFIX;
+	}
+
+	private String roomOnlineKey(String roomId) {
+		return DEFAULT_ROOM_PREFIX + roomId + ONLINE_SUFFIX;
+	}
+
+	private String roomLastTouchKey(String roomId) {
+		return DEFAULT_ROOM_PREFIX + roomId + LAST_TOUCH_SUFFIX;
 	}
 
 	private String roomApprovedKey(String roomId) {
@@ -339,5 +405,56 @@ public class RoomRegistry {
 
 	private boolean isSuccess(Long result) {
 		return result != null && result > 0;
+	}
+
+	private void touchRoom(String roomId, Instant at) {
+		if (roomId == null || roomId.isBlank() || at == null) {
+			return;
+		}
+		redisTemplate.opsForValue().set(roomLastTouchKey(roomId), Long.toString(at.toEpochMilli()));
+	}
+
+	private Optional<Instant> findLastTouch(String roomId) {
+		if (roomId == null || roomId.isBlank()) {
+			return Optional.empty();
+		}
+		String value = redisTemplate.opsForValue().get(roomLastTouchKey(roomId));
+		if (value == null || value.isBlank()) {
+			return Optional.empty();
+		}
+		try {
+			long epochMilli = Long.parseLong(value);
+			return Optional.of(Instant.ofEpochMilli(epochMilli));
+		} catch (NumberFormatException ex) {
+			return Optional.empty();
+		}
+	}
+
+	private Instant calculateAutoDeleteAt(Instant lastTouch) {
+		if (lastTouch == null) {
+			return null;
+		}
+		if (roomAutoDeleteTtl == null || roomAutoDeleteTtl.isZero() || roomAutoDeleteTtl.isNegative()) {
+			return null;
+		}
+		return lastTouch.plus(roomAutoDeleteTtl);
+	}
+
+	public Set<String> findAllRooms() {
+		Set<String> rooms = redisTemplate.opsForSet().members(ALL_ROOMS_KEY);
+		return rooms == null ? Collections.emptySet() : rooms;
+	}
+
+	public Optional<Instant> findAutoDeleteAt(String roomId) {
+		Instant lastTouch = findLastTouch(roomId).orElse(null);
+		return Optional.ofNullable(calculateAutoDeleteAt(lastTouch));
+	}
+
+	public boolean isAutoDeleteDue(String roomId, Instant now) {
+		if (now == null) {
+			return false;
+		}
+		Instant autoDeleteAt = findAutoDeleteAt(roomId).orElse(null);
+		return autoDeleteAt != null && !autoDeleteAt.isAfter(now);
 	}
 }
