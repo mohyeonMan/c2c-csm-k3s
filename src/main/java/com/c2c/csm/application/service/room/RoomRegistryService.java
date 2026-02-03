@@ -236,6 +236,26 @@ public class RoomRegistryService {
         return new PresenceResult(roomId, notifyPayload, roomRegistry.findOnlineMembers(roomId));
     }
 
+    public PresenceResult markOffline(String roomId, String userId) {
+        if (roomId == null || roomId.isBlank()) {
+            throw new RuntimeException("roomId required.");
+        }
+        if (!roomRegistry.isMember(roomId, userId)) {
+            throw new RuntimeException("not a room member.");
+        }
+        String nickname = roomRegistry.findMemberNickname(roomId, userId)
+            .orElse(null);
+        roomRegistry.markOffline(roomId, userId);
+
+        Map<String, Object> notifyPayload = new HashMap<>();
+        notifyPayload.put("userId", userId);
+        if (nickname != null) {
+            notifyPayload.put("nickname", nickname);
+        }
+
+        return new PresenceResult(roomId, notifyPayload, roomRegistry.findOnlineMembers(roomId));
+    }
+
     public Optional<PresenceResult> markOfflineIfMember(String roomId, String userId) {
         if (roomId == null || roomId.isBlank()) {
             return Optional.empty();
