@@ -2,6 +2,8 @@ package com.c2c.csm.application.service.command;
 
 import org.springframework.stereotype.Service;
 
+import java.util.Map;
+
 import com.c2c.csm.application.model.Action;
 import com.c2c.csm.application.model.Command;
 import com.c2c.csm.application.model.Event;
@@ -12,7 +14,6 @@ import com.c2c.csm.application.port.out.presenece.SessionPresencePort;
 import com.c2c.csm.common.util.CommonMapper;
 import com.c2c.csm.application.service.room.RoomRegistryService;
 import com.c2c.csm.application.service.room.RoomRegistryService.JoinResult;
-import com.c2c.csm.infrastructure.registry.dto.RoomSummary;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -55,24 +56,24 @@ public class JoinCommandHandler extends AbstractCommandHandler{
         
         JoinResult joinResult = roomRegistryService.joinRoom(targetRoomId, joiningUserId, nickName);
         Object notifyPayload = joinResult.notifyPayload();
-        RoomSummary summary = joinResult.summary();
 
 
         //참여자들에게 알림.
-        summary.getEntries().stream()
-            .filter(entry -> entry.isOnline())
-            .forEach(entry -> {
-                String targetUserId = entry.getUserId();
+        joinResult.onlineMembers().forEach(targetUserId -> {
             Event event = buildEvent(command, targetUserId, EventType.NOTIFY, Action.JOIN, notifyPayload, Status.SUCCESS);
             sendEvent(event);
         });
         log.info(
-            "command: join success userId={}, roomId={}, members={}",
+            "command: join success userId={}, roomId={}, onlineMembers={}",
             joiningUserId,
             targetRoomId,
-            summary.getEntries().size()
+            joinResult.onlineMembers().size()
         );
-        return summary;
+        return Map.of(
+            "roomId", targetRoomId,
+            "userId", joiningUserId,
+            "nickname", nickName
+        );
     }
     
 }

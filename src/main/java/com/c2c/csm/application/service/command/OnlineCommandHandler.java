@@ -1,6 +1,5 @@
 package com.c2c.csm.application.service.command;
 
-import java.util.HashMap;
 import java.util.Map;
 
 import org.springframework.stereotype.Service;
@@ -15,6 +14,7 @@ import com.c2c.csm.application.port.out.presenece.SessionPresencePort;
 import com.c2c.csm.application.service.room.RoomRegistryService;
 import com.c2c.csm.application.service.room.RoomRegistryService.PresenceResult;
 import com.c2c.csm.common.util.CommonMapper;
+import com.c2c.csm.infrastructure.registry.dto.RoomSummary;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -58,10 +58,8 @@ public class OnlineCommandHandler extends AbstractCommandHandler {
             sendEvent(event);
         });
 
-        Map<String, Object> resultPayload = new HashMap<>(notifyPayload);
-        resultPayload.put("roomId", roomId);
-
+        RoomSummary summary = roomRegistryService.getRoomSummary(roomId);
         log.info("command: online success userId={}, roomId={}", userId, roomId);
-        return resultPayload;
+        return summary;
     }
 }

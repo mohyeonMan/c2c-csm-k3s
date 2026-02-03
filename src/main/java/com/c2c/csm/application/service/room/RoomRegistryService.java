@@ -23,7 +23,7 @@ import lombok.extern.slf4j.Slf4j;
 public class RoomRegistryService {
     private final RoomRegistry roomRegistry;
 
-    public record JoinResult(RoomSummary summary, Map<String, Object> notifyPayload) {}
+    public record JoinResult(String roomId, Map<String, Object> notifyPayload, Set<String> onlineMembers) {}
     public record JoinRequestResult(boolean directApprove, String targetUserId, Map<String, Object> payload) {}
     public record LeaveResult(String roomId, Map<String, Object> notifyPayload, Set<String> remainingMembers) {}
     public record LeaveAllResult(Set<String> rooms, List<LeaveResult> results) {}
@@ -42,15 +42,13 @@ public class RoomRegistryService {
             throw new RuntimeException("입장 실패.");
         }
 
-        RoomSummary summary = roomRegistry.getRoomSummary(roomId)
-            .orElseThrow(RuntimeException::new);
-
         Map<String, Object> notifyPayload = Map.of(
             "userId", userId,
             "nickname", nickname
         );
 
-        return new JoinResult(summary, notifyPayload);
+        Set<String> onlineMembers = roomRegistry.findOnlineMembers(roomId);
+        return new JoinResult(roomId, notifyPayload, onlineMembers);
     }
 
     public JoinRequestResult prepareJoinRequest(String roomId, String requestedUserId, String nickname) {
@@ -211,6 +209,11 @@ public class RoomRegistryService {
             .map(Optional::get)
             .sorted((left, right) -> left.getRoomId().compareTo(right.getRoomId()))
             .collect(Collectors.toList());
+    }
+
+    public RoomSummary getRoomSummary(String roomId) {
+        return roomRegistry.getRoomSummary(roomId)
+            .orElseThrow(() -> new RuntimeException("방을 찾을 수 없음."));
     }
 
     public PresenceResult markOnline(String roomId, String userId) {
