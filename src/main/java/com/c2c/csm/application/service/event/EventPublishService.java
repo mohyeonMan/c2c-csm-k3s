@@ -5,7 +5,7 @@ import org.springframework.stereotype.Service;
 import com.c2c.csm.application.model.Event;
 import com.c2c.csm.application.port.out.event.EventPublishUsecase;
 import com.c2c.csm.application.port.out.event.PublishEventPort;
-import com.c2c.csm.infrastructure.registry.EventRegistry;
+// import com.c2c.csm.infrastructure.registry.EventRegistry;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,7 +15,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class EventPublishService implements EventPublishUsecase {
     private final PublishEventPort publishEventPort;
-    private final EventRegistry eventRegistry;
+    // private final EventRegistry eventRegistry;
 
     @Override
     public void saveAndPublish(String routingKey, Event event) {
@@ -27,7 +27,7 @@ public class EventPublishService implements EventPublishUsecase {
             event.getAction(),
             event.getStatus()
         );
-        eventRegistry.save(event);
+        // eventRegistry.save(event);
         log.info("event: save success eventId={}", event.getEventId());
 
         if(routingKey == null || routingKey.isEmpty()) {
