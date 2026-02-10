@@ -1,4 +1,4 @@
-package com.c2c.csm.application.service.room;
+﻿package com.c2c.csm.application.service.room;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -11,6 +11,8 @@ import java.time.Instant;
 
 import org.springframework.stereotype.Service;
 
+import com.c2c.csm.common.exception.C2cException;
+import com.c2c.csm.common.exception.ErrorCode;
 import com.c2c.csm.infrastructure.registry.RoomRegistry;
 import com.c2c.csm.infrastructure.registry.dto.RoomSummary;
 
@@ -32,14 +34,14 @@ public class RoomRegistryService {
 
     public JoinResult joinRoom(String roomId, String userId, String nickname) {
         if (!roomRegistry.hasJoinApproveToken(roomId, userId)) {
-            throw new RuntimeException("입장권한 없음.");
+            throw new C2cException(ErrorCode.CSM_JOIN_PERMISSION_REQUIRED);
         }
         if (roomRegistry.isMember(roomId, userId)) {
-            throw new RuntimeException("이미 join한 상태.");
+            throw new C2cException(ErrorCode.CSM_ALREADY_JOINED);
         }
         boolean joined = roomRegistry.addMemberWithNickname(roomId, userId, nickname);
         if (!joined) {
-            throw new RuntimeException("입장 실패.");
+            throw new C2cException(ErrorCode.CSM_JOIN_FAILED);
         }
 
         Map<String, Object> notifyPayload = Map.of(
@@ -65,7 +67,7 @@ public class RoomRegistryService {
         }
 
         String ownerId = roomRegistry.findOwnerId(roomId)
-            .orElseThrow(() -> new RuntimeException(" 방을 찾을 수 없음."));
+            .orElseThrow(() -> new C2cException(ErrorCode.CSM_ROOM_NOT_FOUND));
         if (ownerId.equals(requestedUserId)) {
             return new JoinRequestResult(
                 true,
@@ -89,9 +91,9 @@ public class RoomRegistryService {
 
     public Map<String, Object> approveJoin(String roomId, String ownerId, String requestedUserId, boolean approved) {
         String actualOwnerId = roomRegistry.findOwnerId(roomId)
-            .orElseThrow(() -> new RuntimeException("방을 찾을 수 없음."));
+            .orElseThrow(() -> new C2cException(ErrorCode.CSM_ROOM_NOT_FOUND));
         if (!actualOwnerId.equals(ownerId)) {
-            throw new RuntimeException("방장 아님.");
+            throw new C2cException(ErrorCode.CSM_NOT_ROOM_OWNER);
         }
 
         if (approved) {
@@ -109,18 +111,18 @@ public class RoomRegistryService {
 
     public LeaveResult leaveRoom(String roomId, String userId) {
         String previousOwnerId = roomRegistry.findOwnerId(roomId)
-            .orElseThrow(() -> new RuntimeException("방 없음."));
+            .orElseThrow(() -> new C2cException(ErrorCode.CSM_ROOM_NOT_FOUND));
 
         if (!roomRegistry.isMember(roomId, userId)) {
-            throw new RuntimeException("참여자 아님.");
+            throw new C2cException(ErrorCode.CSM_NOT_ROOM_MEMBER);
         }
 
         String nickname = roomRegistry.findMemberNickname(roomId, userId)
-            .orElseThrow(() -> new RuntimeException("닉네임을 찾을 수 없음."));
+            .orElseThrow(() -> new C2cException(ErrorCode.CSM_NICKNAME_NOT_FOUND));
 
         boolean removed = roomRegistry.removeMember(roomId, userId);
         if (!removed) {
-            throw new RuntimeException("나가기 실패");
+            throw new C2cException(ErrorCode.CSM_LEAVE_FAILED);
         }
 
         Map<String, Object> notifyPayload = new HashMap<>();
@@ -145,7 +147,7 @@ public class RoomRegistryService {
         }
         try {
             return Optional.of(leaveRoom(roomId, userId));
-        } catch (RuntimeException ex) {
+        } catch (C2cException ex) {
             log.warn("room registry leave failed userId={}, roomId={}", userId, roomId, ex);
             return Optional.empty();
         }
@@ -213,15 +215,15 @@ public class RoomRegistryService {
 
     public RoomSummary getRoomSummary(String roomId) {
         return roomRegistry.getRoomSummary(roomId)
-            .orElseThrow(() -> new RuntimeException("방을 찾을 수 없음."));
+            .orElseThrow(() -> new C2cException(ErrorCode.CSM_ROOM_NOT_FOUND));
     }
 
     public PresenceResult markOnline(String roomId, String userId) {
         if (roomId == null || roomId.isBlank()) {
-            throw new RuntimeException("roomId required.");
+            throw new C2cException(ErrorCode.CSM_ROOM_ID_REQUIRED);
         }
         if (!roomRegistry.isMember(roomId, userId)) {
-            throw new RuntimeException("not a room member.");
+            throw new C2cException(ErrorCode.CSM_NOT_ROOM_MEMBER);
         }
         String nickname = roomRegistry.findMemberNickname(roomId, userId)
             .orElse(null);
@@ -238,10 +240,10 @@ public class RoomRegistryService {
 
     public PresenceResult markOffline(String roomId, String userId) {
         if (roomId == null || roomId.isBlank()) {
-            throw new RuntimeException("roomId required.");
+            throw new C2cException(ErrorCode.CSM_ROOM_ID_REQUIRED);
         }
         if (!roomRegistry.isMember(roomId, userId)) {
-            throw new RuntimeException("not a room member.");
+            throw new C2cException(ErrorCode.CSM_NOT_ROOM_MEMBER);
         }
         String nickname = roomRegistry.findMemberNickname(roomId, userId)
             .orElse(null);

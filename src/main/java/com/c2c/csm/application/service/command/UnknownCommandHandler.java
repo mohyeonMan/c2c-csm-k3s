@@ -6,6 +6,8 @@ import com.c2c.csm.application.model.Action;
 import com.c2c.csm.application.model.Command;
 import com.c2c.csm.application.port.out.event.EventPublishUsecase;
 import com.c2c.csm.application.port.out.presenece.SessionPresencePort;
+import com.c2c.csm.common.exception.C2cException;
+import com.c2c.csm.common.exception.ErrorCode;
 import com.c2c.csm.common.util.CommonMapper;
 
 import lombok.extern.slf4j.Slf4j;
@@ -35,6 +37,9 @@ public class UnknownCommandHandler extends AbstractCommandHandler {
             command.getRequestId(),
             command.getUserId()
         );
-        throw new RuntimeException("Unknown action: " + command.getAction());
+        throw new C2cException(
+            ErrorCode.CSM_UNSUPPORTED_ACTION,
+            "지원하지 않는 액션입니다: " + command.getAction()
+        );
     }
 }

@@ -11,6 +11,8 @@ import com.c2c.csm.application.model.Status;
 import com.c2c.csm.application.port.in.mq.command.CommandHandler;
 import com.c2c.csm.application.port.out.event.EventPublishUsecase;
 import com.c2c.csm.application.port.out.presenece.SessionPresencePort;
+import com.c2c.csm.common.exception.C2cException;
+import com.c2c.csm.common.exception.ErrorCode;
 import com.c2c.csm.common.util.CommonMapper;
 import com.c2c.csm.common.util.IdGenerator;
 
@@ -117,10 +119,23 @@ public abstract class AbstractCommandHandler implements CommandHandler {
             command.getUserId(),
             Status.ERROR
         );
-        Object errorPayload = Map.of(
-            "code", ex.getClass(),
-            "reason", ex.getMessage()
-        );
+        Object errorPayload;
+        if (ex instanceof C2cException c2cEx) {
+            ErrorCode errorCode = c2cEx.getErrorCode();
+            String reason = c2cEx.getMessage();
+            if (reason == null || reason.isBlank()) {
+                reason = errorCode.getDefaultMessage();
+            }
+            errorPayload = Map.of(
+                "code", errorCode.getCode(),
+                "reason", reason
+            );
+        } else {
+            errorPayload = Map.of(
+                "code", ex.getClass(),
+                "reason", ex.getMessage()
+            );
+        }
         Event result = buildResult(command, Status.ERROR, errorPayload);
         sendEvent(result);
     }   

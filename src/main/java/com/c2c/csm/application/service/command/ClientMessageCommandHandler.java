@@ -1,4 +1,4 @@
-package com.c2c.csm.application.service.command;
+﻿package com.c2c.csm.application.service.command;
 
 import java.util.Map;
 
@@ -11,6 +11,8 @@ import com.c2c.csm.application.model.EventType;
 import com.c2c.csm.application.model.Status;
 import com.c2c.csm.application.port.out.event.EventPublishUsecase;
 import com.c2c.csm.application.port.out.presenece.SessionPresencePort;
+import com.c2c.csm.common.exception.C2cException;
+import com.c2c.csm.common.exception.ErrorCode;
 import com.c2c.csm.common.util.CommonMapper;
 import com.c2c.csm.infrastructure.registry.RoomRegistry;
 
@@ -42,8 +44,8 @@ public class ClientMessageCommandHandler extends AbstractCommandHandler {
     protected Object doHandle(Command command) {
         ClientMessagePayload payload = parsePayload(command.getPayload(), ClientMessagePayload.class);
         String userId = command.getUserId();
-        String roomId = payload.roomId();
-        String message = payload.message();
+        String roomId = payload == null ? null : payload.roomId();
+        String message = payload == null ? null : payload.message();
         int messageLength = message == null ? 0 : message.length();
         log.info(
             "command: client message start userId={}, roomId={}, messageLength={}",
@@ -53,7 +55,7 @@ public class ClientMessageCommandHandler extends AbstractCommandHandler {
         );
 
         String nickname = roomRegistry.findMemberNickname(roomId, userId)
-            .orElseThrow(() -> new RuntimeException("닉네임을 찾을 수 없음"));
+            .orElseThrow(() -> new C2cException(ErrorCode.CSM_NICKNAME_NOT_FOUND));
 
         Object messagePayload = Map.of(
             "roomId", roomId,
@@ -63,7 +65,7 @@ public class ClientMessageCommandHandler extends AbstractCommandHandler {
         );
 
         roomRegistry.findOnlineMembers(roomId).forEach(targetUserId -> {
-            if(targetUserId.equals(userId)) return;
+            if (targetUserId.equals(userId)) return;
             Event event = buildEvent(command, targetUserId, EventType.MESSAGE, Action.CLIENT_MESSAGE, messagePayload, Status.SUCCESS);
             sendEvent(event);
         });
