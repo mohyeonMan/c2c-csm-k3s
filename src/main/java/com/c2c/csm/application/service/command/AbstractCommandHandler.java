@@ -15,6 +15,7 @@ import com.c2c.csm.common.exception.C2cException;
 import com.c2c.csm.common.exception.ErrorCode;
 import com.c2c.csm.common.util.CommonMapper;
 import com.c2c.csm.common.util.IdGenerator;
+import com.c2c.csm.common.util.TimeFormat;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -120,6 +121,13 @@ public abstract class AbstractCommandHandler implements CommandHandler {
             Status.ERROR
         );
         Object errorPayload;
+        Map<String, Object> detailPayload = Map.of(
+            "action", command.getAction(),
+            "requestId", command.getRequestId(),
+            "commandId", command.getCommandId(),
+            "userId", command.getUserId(),
+            "time", TimeFormat.format(Instant.now())
+        );
         if (ex instanceof C2cException c2cEx) {
             ErrorCode errorCode = c2cEx.getErrorCode();
             String reason = c2cEx.getMessage();
@@ -128,12 +136,14 @@ public abstract class AbstractCommandHandler implements CommandHandler {
             }
             errorPayload = Map.of(
                 "code", errorCode.getCode(),
-                "reason", reason
+                "reason", reason,
+                "detail", detailPayload
             );
         } else {
             errorPayload = Map.of(
                 "code", ex.getClass(),
-                "reason", ex.getMessage()
+                "reason", ex.getMessage(),
+                "detail", detailPayload
             );
         }
         Event result = buildResult(command, Status.ERROR, errorPayload);
