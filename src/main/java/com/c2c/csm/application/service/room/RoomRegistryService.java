@@ -9,6 +9,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.time.Instant;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import com.c2c.csm.common.exception.C2cException;
@@ -24,6 +25,8 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class RoomRegistryService {
     private final RoomRegistry roomRegistry;
+    @Value("${c2c.room.list.max-size:100}")
+    private int roomListMaxSize;
 
     public record JoinResult(String roomId, Map<String, Object> notifyPayload, Set<String> onlineMembers) {}
     public record JoinRequestResult(boolean directApprove, String targetUserId, Map<String, Object> payload) {}
@@ -210,6 +213,7 @@ public class RoomRegistryService {
             .filter(Optional::isPresent)
             .map(Optional::get)
             .sorted((left, right) -> left.getRoomId().compareTo(right.getRoomId()))
+            .limit(Math.max(1, roomListMaxSize))
             .collect(Collectors.toList());
     }
 

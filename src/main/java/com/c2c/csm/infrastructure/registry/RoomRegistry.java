@@ -2,14 +2,19 @@ package com.c2c.csm.infrastructure.registry;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.Cursor;
+import org.springframework.data.redis.core.ScanOptions;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Component;
 
@@ -38,6 +43,7 @@ public class RoomRegistry {
 	private static final String APPROVED_SUFFIX = ":approved";
 	private static final String ROOMS_SUFFIX = ":rooms";
 	private static final String JOIN_APPROVE_PREFIX = "join:approve:";
+	private static final int CLEANUP_BATCH_SIZE = 100;
 
 	private final StringRedisTemplate redisTemplate;
 
@@ -84,10 +90,6 @@ public class RoomRegistry {
 			redis.call('SREM', KEYS[6], ARGV[1])
 			redis.call('DEL', KEYS[4])
 			if redis.call('SCARD', KEYS[1]) == 0 then
-			  local approved = redis.call('SMEMBERS', KEYS[5])
-			  for i = 1, #approved do
-			    redis.call('DEL', ARGV[3] .. approved[i])
-			  end
 			  redis.call('DEL', KEYS[1])
 			  redis.call('DEL', KEYS[3])
 			  redis.call('DEL', KEYS[5])
@@ -102,25 +104,6 @@ public class RoomRegistry {
 				redis.call('HSET', KEYS[3], 'ownerId', newOwner)
 			  end
 			end
-			return 1
-			""");
-
-	private static final DefaultRedisScript<Long> DELETE_ROOM_SCRIPT = script("""
-			local members = redis.call('SMEMBERS', KEYS[1])
-			for i = 1, #members do
-			  redis.call('SREM', ARGV[1] .. members[i] .. ARGV[2], ARGV[3])
-			  redis.call('DEL', ARGV[4] .. members[i] .. ARGV[5])
-			end
-			local approved = redis.call('SMEMBERS', KEYS[3])
-			for i = 1, #approved do
-			  redis.call('DEL', ARGV[6] .. approved[i])
-			end
-			redis.call('DEL', KEYS[1])
-			redis.call('DEL', KEYS[2])
-			redis.call('DEL', KEYS[3])
-			redis.call('DEL', KEYS[4])
-			redis.call('DEL', KEYS[5])
-			redis.call('SREM', KEYS[6], ARGV[7])
 			return 1
 			""");
 
@@ -176,14 +159,17 @@ public class RoomRegistry {
 		Set<String> onlineMembers = findOnlineMembers(roomId);
 		Instant lastTouch = findLastTouch(roomId).orElse(null);
 		Instant autoDeleteAt = calculateAutoDeleteAt(lastTouch);
-		List<RoomEntry> entries = members.stream()
+		List<String> memberIds = members.stream()
 			.filter(memberId -> memberId != null && !memberId.isBlank())
+			.sorted(Comparator.nullsLast(String::compareTo))
+			.toList();
+		Map<String, String> nicknameByUserId = readMemberNicknames(roomId, memberIds);
+		List<RoomEntry> entries = memberIds.stream()
 			.map(memberId -> RoomEntry.builder()
 				.userId(memberId)
-				.nickname(findMemberNickname(roomId, memberId).orElse(null))
+				.nickname(nicknameByUserId.get(memberId))
 				.online(onlineMembers.contains(memberId))
 				.build())
-			.sorted(Comparator.comparing(RoomEntry::getUserId, Comparator.nullsLast(String::compareTo)))
 			.toList();
 
 		RoomSummary summary = RoomSummary.builder()
@@ -340,24 +326,16 @@ public class RoomRegistry {
 		if (roomId == null || roomId.isBlank()) {
 			return;
 		}
-		redisTemplate.execute(
-			DELETE_ROOM_SCRIPT,
-			List.of(
-				roomMembersKey(roomId),
-				roomMetaKey(roomId),
-				roomApprovedKey(roomId),
-				roomOnlineKey(roomId),
-				roomLastTouchKey(roomId),
-				ALL_ROOMS_KEY
-			),
-			DEFAULT_USER_PREFIX,
-			ROOMS_SUFFIX,
-			roomId,
-			DEFAULT_ROOM_PREFIX + roomId + ":user:",
-			":nickname",
-			joinApprovePrefix(roomId),
-			roomId
-		);
+		cleanupMemberReferences(roomId);
+		cleanupJoinApproveTokens(roomId);
+		redisTemplate.delete(List.of(
+			roomMembersKey(roomId),
+			roomMetaKey(roomId),
+			roomApprovedKey(roomId),
+			roomOnlineKey(roomId),
+			roomLastTouchKey(roomId)
+		));
+		redisTemplate.opsForSet().remove(ALL_ROOMS_KEY, roomId);
 	}
 
 	private String roomMetaKey(String roomId) {
@@ -427,6 +405,79 @@ public class RoomRegistry {
 			return Optional.of(Instant.ofEpochMilli(epochMilli));
 		} catch (NumberFormatException ex) {
 			return Optional.empty();
+		}
+	}
+
+	private Map<String, String> readMemberNicknames(String roomId, List<String> memberIds) {
+		if (memberIds == null || memberIds.isEmpty()) {
+			return Collections.emptyMap();
+		}
+		List<String> nicknameKeys = memberIds.stream()
+			.map(memberId -> roomUserNicknameKey(roomId, memberId))
+			.toList();
+		List<String> nicknames = redisTemplate.opsForValue().multiGet(nicknameKeys);
+		if (nicknames == null || nicknames.isEmpty()) {
+			return Collections.emptyMap();
+		}
+		Map<String, String> nicknameByUserId = new HashMap<>();
+		for (int i = 0; i < memberIds.size(); i++) {
+			String nickname = i < nicknames.size() ? nicknames.get(i) : null;
+			if (nickname == null || nickname.isBlank()) {
+				continue;
+			}
+			nicknameByUserId.put(memberIds.get(i), nickname);
+		}
+		return nicknameByUserId;
+	}
+
+	private void cleanupMemberReferences(String roomId) {
+		String membersKey = roomMembersKey(roomId);
+		ScanOptions options = ScanOptions.scanOptions().count(CLEANUP_BATCH_SIZE).build();
+		try (Cursor<String> cursor = redisTemplate.opsForSet().scan(membersKey, options)) {
+			List<String> batch = new ArrayList<>(CLEANUP_BATCH_SIZE);
+			while (cursor.hasNext()) {
+				String memberId = cursor.next();
+				if (memberId == null || memberId.isBlank()) {
+					continue;
+				}
+				batch.add(memberId);
+				if (batch.size() >= CLEANUP_BATCH_SIZE) {
+					removeMemberReferencesBatch(roomId, batch);
+					batch.clear();
+				}
+			}
+			if (!batch.isEmpty()) {
+				removeMemberReferencesBatch(roomId, batch);
+			}
+		}
+	}
+
+	private void removeMemberReferencesBatch(String roomId, List<String> memberIds) {
+		for (String memberId : memberIds) {
+			redisTemplate.opsForSet().remove(userRoomsKey(memberId), roomId);
+			redisTemplate.delete(roomUserNicknameKey(roomId, memberId));
+		}
+	}
+
+	private void cleanupJoinApproveTokens(String roomId) {
+		String approvedKey = roomApprovedKey(roomId);
+		ScanOptions options = ScanOptions.scanOptions().count(CLEANUP_BATCH_SIZE).build();
+		try (Cursor<String> cursor = redisTemplate.opsForSet().scan(approvedKey, options)) {
+			List<String> tokenKeys = new ArrayList<>(CLEANUP_BATCH_SIZE);
+			while (cursor.hasNext()) {
+				String userId = cursor.next();
+				if (userId == null || userId.isBlank()) {
+					continue;
+				}
+				tokenKeys.add(joinApproveKey(roomId, userId));
+				if (tokenKeys.size() >= CLEANUP_BATCH_SIZE) {
+					redisTemplate.delete(tokenKeys);
+					tokenKeys.clear();
+				}
+			}
+			if (!tokenKeys.isEmpty()) {
+				redisTemplate.delete(tokenKeys);
+			}
 		}
 	}
 

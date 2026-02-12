@@ -14,8 +14,13 @@ spring:
       port: ${SPRING_REDIS_PORT:6379}
       username: ${SPRING_REDIS_USERNAME:admin}
       password: ${SPRING_REDIS_PASSWORD:password}
+      timeout: ${SPRING_REDIS_TIMEOUT:2s}
+      connect-timeout: ${SPRING_REDIS_CONNECT_TIMEOUT:2s}
 
 c2c:
+  room:
+    list:
+      max-size: ${C2C_ROOM_LIST_MAX_SIZE:100}
   mq:
     command:
       exchange: ${C2C_MQ_COMMAND_EXCHANGE:c2c.command}
