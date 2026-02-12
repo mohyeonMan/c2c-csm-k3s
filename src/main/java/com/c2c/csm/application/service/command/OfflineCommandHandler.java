@@ -15,6 +15,8 @@ import com.c2c.csm.application.service.room.RoomRegistryService;
 import com.c2c.csm.application.service.room.RoomRegistryService.PresenceResult;
 import com.c2c.csm.common.util.CommonMapper;
 
+import com.c2c.csm.application.service.metric.MetricsService;
+
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -26,9 +28,10 @@ public class OfflineCommandHandler extends AbstractCommandHandler {
         EventPublishUsecase eventPublishUsecase,
         SessionPresencePort sessionPresencePort,
         CommonMapper commonMapper,
+        MetricsService metricsService,
         RoomRegistryService roomRegistryService
     ) {
-        super(eventPublishUsecase, sessionPresencePort, commonMapper);
+        super(eventPublishUsecase, sessionPresencePort, commonMapper, metricsService);
         this.roomRegistryService = roomRegistryService;
     }
 

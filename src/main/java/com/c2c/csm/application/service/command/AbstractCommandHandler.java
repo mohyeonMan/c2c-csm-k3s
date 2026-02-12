@@ -1,5 +1,6 @@
 package com.c2c.csm.application.service.command;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
 
@@ -16,6 +17,7 @@ import com.c2c.csm.common.exception.ErrorCode;
 import com.c2c.csm.common.util.CommonMapper;
 import com.c2c.csm.common.util.IdGenerator;
 import com.c2c.csm.common.util.TimeFormat;
+import com.c2c.csm.application.service.metric.MetricsService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,9 +28,12 @@ public abstract class AbstractCommandHandler implements CommandHandler {
     private final EventPublishUsecase eventPublishUsecase;
     private final SessionPresencePort sessionPresencePort;
     private final CommonMapper commonMapper;
+    private final MetricsService metricsService;
 
     @Override
     public void handle(Command command) {
+        Instant startedAt = Instant.now();
+        String result = "error";
         try {
             log.info(
                 "command: handle start action={}, commandId={}, requestId={}, userId={}",
@@ -46,6 +51,7 @@ public abstract class AbstractCommandHandler implements CommandHandler {
                 command.getUserId()
             );
             sendResult(command, resultPayload);
+            result = "success";
         } catch (Exception ex) {
             log.error(
                 "command: handle error action={}, commandId={}, requestId={}, userId={}",
@@ -56,6 +62,12 @@ public abstract class AbstractCommandHandler implements CommandHandler {
                 ex
             );
             sendErrorResult(command, ex);
+        } finally {
+            metricsService.recordCommandOutcome(
+                command.getAction(),
+                result,
+                Duration.between(startedAt, Instant.now())
+            );
         }
     }
 

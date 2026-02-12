@@ -12,6 +12,8 @@ import com.c2c.csm.application.model.Status;
 import com.c2c.csm.application.port.out.event.EventPublishUsecase;
 import com.c2c.csm.application.port.out.presence.SessionPresencePort;
 import com.c2c.csm.common.util.CommonMapper;
+
+import com.c2c.csm.application.service.metric.MetricsService;
 import com.c2c.csm.application.service.room.RoomRegistryService;
 import com.c2c.csm.application.service.room.RoomRegistryService.JoinResult;
 
@@ -26,9 +28,10 @@ public class JoinCommandHandler extends AbstractCommandHandler{
         EventPublishUsecase eventPublishUsecase,
         SessionPresencePort sessionPresencePort,
         CommonMapper commonMapper,
+        MetricsService metricsService,
         RoomRegistryService roomRegistryService
     ) {
-        super(eventPublishUsecase, sessionPresencePort, commonMapper);
+        super(eventPublishUsecase, sessionPresencePort, commonMapper, metricsService);
         this.roomRegistryService = roomRegistryService;
     }
 
@@ -42,7 +45,7 @@ public class JoinCommandHandler extends AbstractCommandHandler{
     @Override
     protected Object doHandle(Command command) {
 
-        //검증 필요.
+        //검�??�요.
         JoinPayload payload = parsePayload(command.getPayload(), JoinPayload.class);
         String joiningUserId = command.getUserId();
         String targetRoomId = payload.roomId();
@@ -58,7 +61,7 @@ public class JoinCommandHandler extends AbstractCommandHandler{
         Object notifyPayload = joinResult.notifyPayload();
 
 
-        //참여자들에게 알림.
+        //참여?�들?�게 ?�림.
         joinResult.onlineMembers().forEach(targetUserId -> {
             Event event = buildEvent(command, targetUserId, EventType.NOTIFY, Action.JOIN, notifyPayload, Status.SUCCESS);
             sendEvent(event);

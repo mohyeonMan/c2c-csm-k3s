@@ -10,6 +10,8 @@ import com.c2c.csm.common.exception.C2cException;
 import com.c2c.csm.common.exception.ErrorCode;
 import com.c2c.csm.common.util.CommonMapper;
 
+import com.c2c.csm.application.service.metric.MetricsService;
+
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -18,9 +20,10 @@ public class UnknownCommandHandler extends AbstractCommandHandler {
     public UnknownCommandHandler(
         EventPublishUsecase eventPublishUsecase,
         SessionPresencePort sessionPresencePort,
-        CommonMapper commonMapper
+        CommonMapper commonMapper,
+        MetricsService metricsService
     ) {
-        super(eventPublishUsecase, sessionPresencePort, commonMapper);
+        super(eventPublishUsecase, sessionPresencePort, commonMapper, metricsService);
     }
 
     @Override
@@ -39,7 +42,7 @@ public class UnknownCommandHandler extends AbstractCommandHandler {
         );
         throw new C2cException(
             ErrorCode.CSM_UNSUPPORTED_ACTION,
-            "지원하지 않는 액션입니다: " + command.getAction()
+            "지?�하지 ?�는 ?�션?�니?? " + command.getAction()
         );
     }
 }

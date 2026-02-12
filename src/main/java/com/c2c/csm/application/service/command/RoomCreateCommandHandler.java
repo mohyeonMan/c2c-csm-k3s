@@ -9,6 +9,8 @@ import com.c2c.csm.application.port.out.presence.SessionPresencePort;
 import com.c2c.csm.common.exception.C2cException;
 import com.c2c.csm.common.exception.ErrorCode;
 import com.c2c.csm.common.util.CommonMapper;
+
+import com.c2c.csm.application.service.metric.MetricsService;
 import com.c2c.csm.infrastructure.registry.RoomRegistry;
 import com.c2c.csm.infrastructure.registry.dto.Room;
 
@@ -23,9 +25,10 @@ public class RoomCreateCommandHandler extends AbstractCommandHandler{
         EventPublishUsecase eventPublishUsecase,
         SessionPresencePort sessionPresencePort,
         CommonMapper commonMapper,
+        MetricsService metricsService,
         RoomRegistry roomRegistry
     ) {
-        super(eventPublishUsecase, sessionPresencePort, commonMapper);
+        super(eventPublishUsecase, sessionPresencePort, commonMapper, metricsService);
         this.roomRegistry = roomRegistry;
     }
 

@@ -13,6 +13,8 @@ import com.c2c.csm.application.service.room.RoomRegistryService;
 import com.c2c.csm.application.service.room.RoomRegistryService.JoinRequestResult;
 import com.c2c.csm.common.util.CommonMapper;
 
+import com.c2c.csm.application.service.metric.MetricsService;
+
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -24,9 +26,10 @@ public class JoinRequestCommandHandler extends AbstractCommandHandler{
         EventPublishUsecase eventPublishUsecase,
         SessionPresencePort sessionPresencePort,
         CommonMapper commonMapper,
+        MetricsService metricsService,
         RoomRegistryService roomRegistryService
     ) {
-        super(eventPublishUsecase, sessionPresencePort, commonMapper);
+        super(eventPublishUsecase, sessionPresencePort, commonMapper, metricsService);
         this.roomRegistryService = roomRegistryService;
     }
 
@@ -40,7 +43,7 @@ public class JoinRequestCommandHandler extends AbstractCommandHandler{
     @Override
     protected Object doHandle(Command command) {
 
-        //검증 필요.
+        //검�??�요.
         JoinRequestPayload payload = parsePayload(command.getPayload(), JoinRequestPayload.class);
         String requestedUserId = command.getUserId();
         String targetRoomId = payload.roomId();
