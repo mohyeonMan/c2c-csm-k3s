@@ -10,7 +10,7 @@ import com.c2c.csm.application.model.EventType;
 import com.c2c.csm.application.model.Status;
 import com.c2c.csm.application.port.in.mq.command.CommandHandler;
 import com.c2c.csm.application.port.out.event.EventPublishUsecase;
-import com.c2c.csm.application.port.out.presenece.SessionPresencePort;
+import com.c2c.csm.application.port.out.presence.SessionPresencePort;
 import com.c2c.csm.common.exception.C2cException;
 import com.c2c.csm.common.exception.ErrorCode;
 import com.c2c.csm.common.util.CommonMapper;

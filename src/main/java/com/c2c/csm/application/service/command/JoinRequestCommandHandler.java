@@ -8,7 +8,7 @@ import com.c2c.csm.application.model.Event;
 import com.c2c.csm.application.model.EventType;
 import com.c2c.csm.application.model.Status;
 import com.c2c.csm.application.port.out.event.EventPublishUsecase;
-import com.c2c.csm.application.port.out.presenece.SessionPresencePort;
+import com.c2c.csm.application.port.out.presence.SessionPresencePort;
 import com.c2c.csm.application.service.room.RoomRegistryService;
 import com.c2c.csm.application.service.room.RoomRegistryService.JoinRequestResult;
 import com.c2c.csm.common.util.CommonMapper;

@@ -1,4 +1,4 @@
-package com.c2c.csm.application.port.out.presenece;
+package com.c2c.csm.application.port.out.presence;
 
 public interface SessionPresencePort {
     

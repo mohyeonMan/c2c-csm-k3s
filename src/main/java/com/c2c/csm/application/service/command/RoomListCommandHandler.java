@@ -8,7 +8,7 @@ import org.springframework.stereotype.Service;
 import com.c2c.csm.application.model.Action;
 import com.c2c.csm.application.model.Command;
 import com.c2c.csm.application.port.out.event.EventPublishUsecase;
-import com.c2c.csm.application.port.out.presenece.SessionPresencePort;
+import com.c2c.csm.application.port.out.presence.SessionPresencePort;
 import com.c2c.csm.application.service.room.RoomRegistryService;
 import com.c2c.csm.common.util.CommonMapper;
 import com.c2c.csm.infrastructure.registry.dto.RoomSummary;
