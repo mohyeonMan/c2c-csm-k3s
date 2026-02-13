@@ -45,7 +45,7 @@ public class JoinCommandHandler extends AbstractCommandHandler{
     @Override
     protected Object doHandle(Command command) {
 
-        //검�??�요.
+        //검증필요.
         JoinPayload payload = parsePayload(command.getPayload(), JoinPayload.class);
         String joiningUserId = command.getUserId();
         String targetRoomId = payload.roomId();
@@ -61,7 +61,7 @@ public class JoinCommandHandler extends AbstractCommandHandler{
         Object notifyPayload = joinResult.notifyPayload();
 
 
-        //참여?�들?�게 ?�림.
+        //참여자들에게 알림.
         joinResult.onlineMembers().forEach(targetUserId -> {
             Event event = buildEvent(command, targetUserId, EventType.NOTIFY, Action.JOIN, notifyPayload, Status.SUCCESS);
             sendEvent(event);

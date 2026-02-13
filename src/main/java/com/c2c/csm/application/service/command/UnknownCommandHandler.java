@@ -42,7 +42,7 @@ public class UnknownCommandHandler extends AbstractCommandHandler {
         );
         throw new C2cException(
             ErrorCode.CSM_UNSUPPORTED_ACTION,
-            "지?�하지 ?�는 ?�션?�니?? " + command.getAction()
+            "지원하지 않는 액션 입니다. " + command.getAction()
         );
     }
 }

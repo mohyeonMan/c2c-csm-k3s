@@ -43,7 +43,7 @@ public class JoinRequestCommandHandler extends AbstractCommandHandler{
     @Override
     protected Object doHandle(Command command) {
 
-        //검�??�요.
+        //검증 필요.
         JoinRequestPayload payload = parsePayload(command.getPayload(), JoinRequestPayload.class);
         String requestedUserId = command.getUserId();
         String targetRoomId = payload.roomId();
