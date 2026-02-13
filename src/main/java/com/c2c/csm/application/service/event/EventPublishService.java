@@ -19,16 +19,16 @@ public class EventPublishService implements EventPublishUsecase {
 
     @Override
     public void saveAndPublish(String routingKey, Event event) {
-        log.info(
-            "event: save start eventId={}, userId={}, type={}, action={}, status={}",
-            event.getEventId(),
-            event.getUserId(),
-            event.getType(),
-            event.getAction(),
-            event.getStatus()
-        );
+        // log.info(
+        //     "event: save start eventId={}, userId={}, type={}, action={}, status={}",
+        //     event.getEventId(),
+        //     event.getUserId(),
+        //     event.getType(),
+        //     event.getAction(),
+        //     event.getStatus()
+        // );
         // eventRegistry.save(event);
-        log.info("event: save success eventId={}", event.getEventId());
+        // log.info("event: save success eventId={}", event.getEventId());
 
         if(routingKey == null || routingKey.isEmpty()) {
             log.warn("No routing key provided for event: {}", event);

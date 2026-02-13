@@ -42,6 +42,11 @@ public class ConnClosedCommandHandler extends AbstractCommandHandler{
     }
 
     @Override
+    protected boolean shouldSendResult(Command command) {
+        return false;
+    }
+
+    @Override
     protected Object doHandle(Command command) {
         String userId = command.getUserId();
         log.info("command: conn closed start userId={}", userId);

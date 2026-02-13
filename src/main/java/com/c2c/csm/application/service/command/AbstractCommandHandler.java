@@ -50,7 +50,9 @@ public abstract class AbstractCommandHandler implements CommandHandler {
                 command.getRequestId(),
                 command.getUserId()
             );
-            sendResult(command, resultPayload);
+            if (shouldSendResult(command)) {
+                sendResult(command, resultPayload);
+            }
             result = "success";
         } catch (Exception ex) {
             log.error(
@@ -61,7 +63,9 @@ public abstract class AbstractCommandHandler implements CommandHandler {
                 command.getUserId(),
                 ex
             );
-            sendErrorResult(command, ex);
+            if (shouldSendResult(command)) {
+                sendErrorResult(command, ex);
+            }
         } finally {
             metricsService.recordCommandOutcome(
                 command.getAction(),
@@ -72,6 +76,10 @@ public abstract class AbstractCommandHandler implements CommandHandler {
     }
 
     protected abstract Object doHandle(Command command);
+
+    protected boolean shouldSendResult(Command command) {
+        return true;
+    }
 
     protected void sendEvent(Event event){
         log.info(
